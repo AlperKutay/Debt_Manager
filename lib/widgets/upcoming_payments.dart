@@ -1,0 +1,102 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../providers/transaction_provider.dart';
+import '../providers/category_provider.dart';
+import '../models/transaction.dart' as app_model;
+import '../models/category.dart' as app_model;
+
+class UpcomingPayments extends StatelessWidget {
+  final int? limit;
+
+  const UpcomingPayments({super.key, this.limit});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<app_model.Transaction>>(
+      future: Provider.of<TransactionProvider>(context, listen: false)
+          .getUpcomingTransactions(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}'),
+          );
+        }
+
+        final upcomingTransactions = snapshot.data ?? [];
+        final limitedTransactions = limit != null && upcomingTransactions.length > limit!
+            ? upcomingTransactions.take(limit!).toList()
+            : upcomingTransactions;
+
+        if (limitedTransactions.isEmpty) {
+          return const Center(
+            child: Text('No upcoming payments'),
+          );
+        }
+
+        return Consumer<CategoryProvider>(
+          builder: (context, categoryProvider, child) {
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: limit != null
+                  ? const NeverScrollableScrollPhysics()
+                  : null,
+              itemCount: limitedTransactions.length,
+              itemBuilder: (context, index) {
+                final transaction = limitedTransactions[index];
+                final category = categoryProvider.categories.firstWhere(
+                  (c) => c.id == transaction.categoryId,
+                  orElse: () => app_model.Category(
+                    name: 'Unknown',
+                    type: transaction.type,
+                    icon: 'help',
+                  ),
+                );
+
+                return _buildUpcomingPaymentItem(context, transaction, category);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildUpcomingPaymentItem(
+    BuildContext context,
+    app_model.Transaction transaction,
+    app_model.Category category,
+  ) {
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final daysUntil = transaction.date.difference(DateTime.now()).inDays;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.blue.shade100,
+          child: const Icon(
+            Icons.calendar_today,
+            color: Colors.blue,
+          ),
+        ),
+        title: Text(category.name),
+        subtitle: Text(
+          '${dateFormat.format(transaction.date)} · ${daysUntil == 0 ? 'Today' : daysUntil == 1 ? 'Tomorrow' : 'In $daysUntil days'}',
+        ),
+        trailing: Text(
+          currencyFormat.format(transaction.amount),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: transaction.type == 'income' ? Colors.green : Colors.red,
+          ),
+        ),
+      ),
+    );
+  }
+} 
