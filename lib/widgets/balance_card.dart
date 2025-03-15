@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
 
 class BalanceCard extends StatelessWidget {
   final double balance;
@@ -15,7 +17,8 @@ class BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+    final currencyFormat = _getCurrencyFormat(settingsProvider.settings.currency);
     
     return Card(
       elevation: 4,
@@ -53,6 +56,7 @@ class BalanceCard extends StatelessWidget {
                   income,
                   Colors.green,
                   Icons.arrow_downward,
+                  currencyFormat,
                 ),
                 _buildBalanceItem(
                   context,
@@ -60,6 +64,7 @@ class BalanceCard extends StatelessWidget {
                   expense,
                   Colors.red,
                   Icons.arrow_upward,
+                  currencyFormat,
                 ),
               ],
             ),
@@ -75,9 +80,8 @@ class BalanceCard extends StatelessWidget {
     double amount,
     Color color,
     IconData icon,
+    NumberFormat currencyFormat,
   ) {
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -109,5 +113,21 @@ class BalanceCard extends StatelessWidget {
         ),
       ],
     );
+  }
+  
+  NumberFormat _getCurrencyFormat(String currency) {
+    switch (currency) {
+      case 'EUR':
+        return NumberFormat.currency(symbol: '€');
+      case 'GBP':
+        return NumberFormat.currency(symbol: '£');
+      case 'JPY':
+        return NumberFormat.currency(symbol: '¥', decimalDigits: 0);
+      case 'TRY':
+        return NumberFormat.currency(symbol: '₺');
+      case 'USD':
+      default:
+        return NumberFormat.currency(symbol: '\$');
+    }
   }
 } 

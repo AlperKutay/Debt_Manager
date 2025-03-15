@@ -6,6 +6,8 @@ import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../models/transaction.dart' as app_model;
 import '../models/category.dart' as app_model;
+import '../providers/settings_provider.dart';
+import '../screens/add_transaction_screen.dart';
 
 class TransactionList extends StatelessWidget {
   final int? limit;
@@ -66,8 +68,9 @@ class TransactionList extends StatelessWidget {
     app_model.Category category,
     TransactionProvider provider,
   ) {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     final dateFormat = DateFormat('MMM dd, yyyy');
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final currencyFormat = _getCurrencyFormat(settingsProvider.settings.currency);
     final isIncome = transaction.type == 'income';
 
     return Slidable(
@@ -76,7 +79,15 @@ class TransactionList extends StatelessWidget {
         children: [
           SlidableAction(
             onPressed: (context) {
-              // Edit transaction
+              // Navigate to edit transaction screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddTransactionScreen(
+                    transaction: transaction,
+                  ),
+                ),
+              );
             },
             backgroundColor: Colors.blue,
             foregroundColor: Colors.white,
@@ -121,5 +132,21 @@ class TransactionList extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  NumberFormat _getCurrencyFormat(String currency) {
+    switch (currency) {
+      case 'EUR':
+        return NumberFormat.currency(symbol: '€');
+      case 'GBP':
+        return NumberFormat.currency(symbol: '£');
+      case 'JPY':
+        return NumberFormat.currency(symbol: '¥', decimalDigits: 0);
+      case 'TRY':
+        return NumberFormat.currency(symbol: '₺');
+      case 'USD':
+      default:
+        return NumberFormat.currency(symbol: '\$');
+    }
   }
 } 

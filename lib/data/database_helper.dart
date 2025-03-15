@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/transaction.dart' as app_model;
 import '../models/category.dart' as app_model;
+import '../models/settings.dart' as app_model;
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -21,8 +22,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -56,8 +58,49 @@ class DatabaseHelper {
     )
     ''');
 
+    // Settings table
+    await db.execute('''
+    CREATE TABLE ${app_model.Settings.tableName} (
+      ${app_model.Settings.colId} $idType,
+      ${app_model.Settings.colInitialDay} $integerType,
+      ${app_model.Settings.colCurrency} $textType,
+      ${app_model.Settings.colThemeMode} $textType
+    )
+    ''');
+
     // Insert default categories
     await _insertDefaultCategories(db);
+    
+    // Insert default settings
+    await _insertDefaultSettings(db);
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Check if settings table already exists
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='${app_model.Settings.tableName}'");
+      
+      if (tables.isEmpty) {
+        // Only create the table if it doesn't exist
+        const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+        const textType = 'TEXT NOT NULL';
+        const integerType = 'INTEGER NOT NULL';
+        
+        // Settings table
+        await db.execute('''
+        CREATE TABLE ${app_model.Settings.tableName} (
+          ${app_model.Settings.colId} $idType,
+          ${app_model.Settings.colInitialDay} $integerType,
+          ${app_model.Settings.colCurrency} $textType,
+          ${app_model.Settings.colThemeMode} $textType
+        )
+        ''');
+        
+        // Insert default settings
+        await _insertDefaultSettings(db);
+      }
+    }
   }
 
   Future _insertDefaultCategories(Database db) async {
@@ -97,6 +140,14 @@ class DatabaseHelper {
       app_model.Category.colName: 'Groceries',
       app_model.Category.colType: 'expense',
       app_model.Category.colIcon: 'shopping_cart',
+    });
+  }
+
+  Future _insertDefaultSettings(Database db) async {
+    await db.insert(app_model.Settings.tableName, {
+      app_model.Settings.colInitialDay: 1,
+      app_model.Settings.colCurrency: 'USD',
+      app_model.Settings.colThemeMode: 'system',
     });
   }
 
@@ -193,8 +244,49 @@ class DatabaseHelper {
     );
   }
 
+  // CRUD operations for Settings
+  Future<app_model.Settings> getSettings() async {
+    try {
+      final db = await instance.database;
+      final result = await db.query(app_model.Settings.tableName);
+      
+      if (result.isEmpty) {
+        // If no settings found, insert default and return it
+        final settings = app_model.Settings();
+        await insertSettings(settings);
+        return settings;
+      }
+      
+      return app_model.Settings.fromMap(result.first);
+    } catch (e) {
+      // If there's an error, return default settings
+      print('Error getting settings: $e');
+      return app_model.Settings();
+    }
+  }
+
+  Future<int> insertSettings(app_model.Settings settings) async {
+    final db = await instance.database;
+    return await db.insert(app_model.Settings.tableName, settings.toMap());
+  }
+
+  Future<int> updateSettings(app_model.Settings settings) async {
+    final db = await instance.database;
+    return await db.update(
+      app_model.Settings.tableName,
+      settings.toMap(),
+      where: '${app_model.Settings.colId} = ?',
+      whereArgs: [settings.id],
+    );
+  }
+
   Future close() async {
     final db = await instance.database;
     db.close();
+  }
+
+  // Add this method to initialize the database
+  Future<void> initialize() async {
+    await database;
   }
 } 

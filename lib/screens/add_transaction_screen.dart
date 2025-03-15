@@ -6,6 +6,7 @@ import '../models/transaction.dart' as app_model;
 import '../models/category.dart' as app_model;
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
+import '../providers/settings_provider.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final app_model.Transaction? transaction;
@@ -107,10 +108,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   // Amount Field
                   TextFormField(
                     controller: _amountController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Amount',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.attach_money),
+                      prefixText: _getCurrencySymbol(Provider.of<SettingsProvider>(context).settings.currency),
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     validator: (value) {
@@ -277,6 +279,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       }
       
       Navigator.pop(context);
+    }
+  }
+
+  String _getCurrencySymbol(String currency) {
+    switch (currency) {
+      case 'EUR':
+        return '€';
+      case 'GBP':
+        return '£';
+      case 'JPY':
+        return '¥';
+      case 'TRY':
+        return '₺';
+      case 'USD':
+      default:
+        return '\$';
     }
   }
 } 

@@ -5,6 +5,7 @@ import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../models/transaction.dart' as app_model;
 import '../models/category.dart' as app_model;
+import '../providers/settings_provider.dart';
 
 class UpcomingPayments extends StatelessWidget {
   final int? limit;
@@ -71,8 +72,9 @@ class UpcomingPayments extends StatelessWidget {
     app_model.Transaction transaction,
     app_model.Category category,
   ) {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     final dateFormat = DateFormat('MMM dd, yyyy');
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final currencyFormat = _getCurrencyFormat(settingsProvider.settings.currency);
     final daysUntil = transaction.date.difference(DateTime.now()).inDays;
 
     return Card(
@@ -98,5 +100,21 @@ class UpcomingPayments extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  NumberFormat _getCurrencyFormat(String currency) {
+    switch (currency) {
+      case 'EUR':
+        return NumberFormat.currency(symbol: '€');
+      case 'GBP':
+        return NumberFormat.currency(symbol: '£');
+      case 'JPY':
+        return NumberFormat.currency(symbol: '¥', decimalDigits: 0);
+      case 'TRY':
+        return NumberFormat.currency(symbol: '₺');
+      case 'USD':
+      default:
+        return NumberFormat.currency(symbol: '\$');
+    }
   }
 } 
