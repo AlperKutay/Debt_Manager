@@ -16,6 +16,7 @@ class SettingsProvider with ChangeNotifier {
 
     try {
       _settings = await DatabaseHelper.instance.getSettings();
+      print("Loaded settings: ${_settings?.toMap()}");
     } catch (e) {
       debugPrint('Error loading settings: $e');
     } finally {
@@ -53,5 +54,20 @@ class SettingsProvider with ChangeNotifier {
     
     final updatedSettings = _settings!.copy(themeMode: themeMode);
     await updateSettings(updatedSettings);
+  }
+
+  Future<void> updateLocale(String locale) async {
+    if (_settings == null) await loadSettings();
+    
+    print("Updating locale to: $locale");
+    print("Current settings: ${_settings!.toMap()}");
+    
+    final updatedSettings = _settings!.copy(locale: locale);
+    print("Updated settings: ${updatedSettings.toMap()}");
+    
+    await updateSettings(updatedSettings);
+    
+    // Force app to rebuild with new locale
+    notifyListeners();
   }
 } 

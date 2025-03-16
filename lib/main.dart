@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'providers/transaction_provider.dart';
 import 'providers/category_provider.dart';
@@ -6,6 +7,8 @@ import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'utils/notification_service.dart';
 import 'data/database_helper.dart';
+import 'l10n/app_localizations.dart';
+import 'utils/restart_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,13 +19,15 @@ void main() async {
   await NotificationService().initNotification();
   
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => TransactionProvider()),
-        ChangeNotifierProvider(create: (_) => CategoryProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
-      ],
-      child: const MyApp(),
+    RestartWidget(
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => TransactionProvider()),
+          ChangeNotifierProvider(create: (_) => CategoryProvider()),
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ],
+        child: const MyApp(),
+      ),
     ),
   );
 }
@@ -39,8 +44,16 @@ class MyApp extends StatelessWidget {
           Future.microtask(() => settingsProvider.loadSettings());
         }
         
+        // Get the current locale
+        final String currentLocale = settingsProvider.settings.locale;
+        print("Building MaterialApp with locale: $currentLocale");
+        
+        // Create a new locale object each time to force rebuild
+        final appLocale = Locale(currentLocale);
+        print("Created Locale object: $appLocale");
+        
         return MaterialApp(
-          title: 'Debt Manager',
+          title: 'Borç Yöneticisi',
           theme: ThemeData(
             primarySwatch: Colors.blue,
             brightness: Brightness.light,
@@ -53,6 +66,19 @@ class MyApp extends StatelessWidget {
           ),
           themeMode: _getThemeMode(settingsProvider.settings.themeMode),
           home: const HomeScreen(),
+          
+          // Add localization support
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en', ''), // English
+            Locale('tr', ''), // Turkish
+          ],
+          locale: appLocale,
         );
       },
     );

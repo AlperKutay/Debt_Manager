@@ -7,6 +7,7 @@ import '../models/category.dart' as app_model;
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/settings_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final app_model.Transaction? transaction;
@@ -82,21 +83,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Transaction Type Selector
-                  const Text(
-                    'Transaction Type',
+                  Text(
+                    AppLocalizations.of(context).transactionType,
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   SegmentedButton<String>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: 'expense',
-                        label: Text('Expense'),
+                        label: Text(AppLocalizations.of(context).expense),
                         icon: Icon(Icons.arrow_upward),
                       ),
                       ButtonSegment(
                         value: 'income',
-                        label: Text('Income'),
+                        label: Text(AppLocalizations.of(context).income),
                         icon: Icon(Icons.arrow_downward),
                       ),
                     ],
@@ -133,8 +134,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const SizedBox(height: 16),
                   
                   // Category Dropdown
-                  const Text(
-                    'Category',
+                  Text(
+                    AppLocalizations.of(context).category,
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -144,7 +145,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
                     value: _selectedCategoryId,
-                    hint: const Text('Select a category'),
+                    hint: Text(AppLocalizations.of(context).selectCategory),
                     items: (_transactionType == 'income' ? incomeCategories : expenseCategories)
                         .map((app_model.Category category) {
                       return DropdownMenuItem<int>(
@@ -159,7 +160,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     },
                     validator: (value) {
                       if (value == null) {
-                        return 'Please select a category';
+                        return AppLocalizations.of(context).pleaseSelectCategory;
                       }
                       return null;
                     },
@@ -167,8 +168,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const SizedBox(height: 16),
                   
                   // Date Picker
-                  const Text(
-                    'Date',
+                  Text(
+                    AppLocalizations.of(context).date,
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -210,8 +211,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   // Recurring Switch
                   Row(
                     children: [
-                      const Text(
-                        'Recurring Monthly',
+                      Text(
+                        AppLocalizations.of(context).recurringMonthly,
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
@@ -233,13 +234,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 16),
-                        const Text(
-                          'Recurrence Count',
+                        Text(
+                          AppLocalizations.of(context).recurrenceCount,
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'How many months should this transaction recur? (0 for indefinite)',
+                        Text(
+                          AppLocalizations.of(context).recurrenceCountDescription,
                           style: TextStyle(
                             color: Colors.grey,
                             fontSize: 12,
@@ -256,13 +257,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           keyboardType: TextInputType.number,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter a number';
+                              return AppLocalizations.of(context).pleaseEnterNumber;
                             }
                             if (int.tryParse(value) == null) {
-                              return 'Please enter a valid number';
+                              return AppLocalizations.of(context).pleaseEnterValidNumber;
                             }
                             if (int.parse(value) < 0) {
-                              return 'Please enter a non-negative number';
+                              return AppLocalizations.of(context).pleaseEnterNonNegativeNumber;
                             }
                             return null;
                           },
@@ -289,7 +290,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     child: ElevatedButton(
                       onPressed: _saveTransaction,
                       child: Text(
-                        widget.transaction == null ? 'Add Transaction' : 'Update Transaction',
+                        widget.transaction == null ? AppLocalizations.of(context).addTransaction : AppLocalizations.of(context).updateTransaction,
                         style: const TextStyle(fontSize: 16),
                       ),
                     ),

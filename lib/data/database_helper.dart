@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -121,6 +121,27 @@ class DatabaseHelper {
         }
       } else {
         print('recurrence_count column already exists');
+      }
+    }
+
+    if (oldVersion < 4) {
+      // Add locale column to settings table
+      try {
+        var tableInfo = await db.rawQuery("PRAGMA table_info(${app_model.Settings.tableName})");
+        bool columnExists = tableInfo.any((column) => 
+          column['name'] == app_model.Settings.colLocale);
+        
+        if (!columnExists) {
+          await db.execute('''
+          ALTER TABLE ${app_model.Settings.tableName}
+          ADD COLUMN ${app_model.Settings.colLocale} TEXT DEFAULT 'en'
+          ''');
+          print('Added locale column to settings table');
+        } else {
+          print('locale column already exists');
+        }
+      } catch (e) {
+        print('Error upgrading database for locale: $e');
       }
     }
   }
@@ -339,23 +360,19 @@ class DatabaseHelper {
 
   // CRUD operations for Settings
   Future<app_model.Settings> getSettings() async {
-    try {
-      final db = await instance.database;
-      final result = await db.query(app_model.Settings.tableName);
-      
-      if (result.isEmpty) {
-        // If no settings found, insert default and return it
-        final settings = app_model.Settings();
-        await insertSettings(settings);
-        return settings;
-      }
-      
-      return app_model.Settings.fromMap(result.first);
-    } catch (e) {
-      // If there's an error, return default settings
-      print('Error getting settings: $e');
-      return app_model.Settings();
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(app_model.Settings.tableName);
+    
+    if (maps.isNotEmpty) {
+      print("Retrieved settings from DB: ${maps.first}");
+      return app_model.Settings.fromMap(maps.first);
     }
+    
+    // If no settings found, create default settings
+    final defaultSettings = app_model.Settings();
+    await insertSettings(defaultSettings);
+    print("Created default settings: ${defaultSettings.toMap()}");
+    return defaultSettings;
   }
 
   Future<int> insertSettings(app_model.Settings settings) async {
@@ -364,13 +381,26 @@ class DatabaseHelper {
   }
 
   Future<int> updateSettings(app_model.Settings settings) async {
-    final db = await instance.database;
-    return await db.update(
-      app_model.Settings.tableName,
-      settings.toMap(),
-      where: '${app_model.Settings.colId} = ?',
-      whereArgs: [settings.id],
-    );
+    final db = await database;
+    print("Updating settings in DB: ${settings.toMap()}");
+    
+    // Check if settings exist
+    final List<Map<String, dynamic>> maps = await db.query(app_model.Settings.tableName);
+    
+    if (maps.isEmpty) {
+      // Insert if not exists
+      print("No settings found, inserting new settings");
+      return await insertSettings(settings);
+    } else {
+      // Update existing settings
+      print("Updating existing settings with ID: ${maps.first['id']}");
+      return await db.update(
+        app_model.Settings.tableName,
+        settings.toMap(),
+        where: '${app_model.Settings.colId} = ?',
+        whereArgs: [maps.first['id']],
+      );
+    }
   }
 
   Future close() async {

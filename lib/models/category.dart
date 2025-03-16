@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import '../utils/icon_map.dart';
+
 class Category {
   static const String tableName = 'categories';
   static const String colId = 'id';
@@ -30,16 +33,26 @@ class Category {
         icon: icon ?? this.icon,
       );
 
-  static Category fromMap(Map<String, dynamic> map) => Category(
-        id: map[colId],
-        name: map[colName],
-        type: map[colType],
-        icon: map[colIcon],
-      );
+  factory Category.fromMap(Map<String, dynamic> map) {
+    return Category(
+      id: map['id'],
+      name: map['name'],
+      type: map['type'],
+      icon: map['icon'],
+    );
+  }
 
-  Map<String, dynamic> toMap() => {
-        colName: name,
-        colType: type,
-        colIcon: icon,
-      };
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'type': type,
+      'icon': icon,
+    };
+  }
+
+  // Helper method to get the IconData from the icon string
+  IconData getIconData() {
+    return IconMap.getIcon(icon);
+  }
 } 
