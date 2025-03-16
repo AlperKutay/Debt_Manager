@@ -21,6 +21,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
+  final _recurrenceCountController = TextEditingController();
   
   String _transactionType = 'expense';
   int? _selectedCategoryId;
@@ -44,6 +45,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _selectedCategoryId = widget.transaction!.categoryId;
       _selectedDate = widget.transaction!.date;
       _isRecurring = widget.transaction!.isRecurring;
+      _recurrenceCountController.text = widget.transaction!.recurrenceCount.toString();
+    } else {
+      _recurrenceCountController.text = '0'; // Default to 0 (indefinite)
     }
   }
 
@@ -51,6 +55,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void dispose() {
     _amountController.dispose();
     _notesController.dispose();
+    _recurrenceCountController.dispose();
     super.dispose();
   }
 
@@ -222,6 +227,49 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ),
                   const SizedBox(height: 16),
                   
+                  // Recurrence Count Field (only visible if recurring is enabled)
+                  if (_isRecurring)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Recurrence Count',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'How many months should this transaction recur? (0 for indefinite)',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _recurrenceCountController,
+                          decoration: const InputDecoration(
+                            labelText: 'Number of Months',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.repeat),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a number';
+                            }
+                            if (int.tryParse(value) == null) {
+                              return 'Please enter a valid number';
+                            }
+                            if (int.parse(value) < 0) {
+                              return 'Please enter a non-negative number';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  
                   // Notes Field
                   TextFormField(
                     controller: _notesController,
@@ -259,6 +307,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (_formKey.currentState!.validate()) {
       final amount = double.parse(_amountController.text);
       final notes = _notesController.text;
+      final recurrenceCount = int.parse(_recurrenceCountController.text);
       
       final transaction = app_model.Transaction(
         id: widget.transaction?.id,
@@ -267,16 +316,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         categoryId: _selectedCategoryId!,
         date: _selectedDate,
         isRecurring: _isRecurring,
+        recurrenceCount: recurrenceCount,
         notes: notes,
       );
       
       final provider = Provider.of<TransactionProvider>(context, listen: false);
+      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
       
       if (widget.transaction == null) {
-        provider.addTransaction(transaction);
+        provider.addTransaction(transaction, settingsProvider: settingsProvider);
       } else {
         provider.updateTransaction(transaction);
       }
+      
+      // Refresh transactions list
+      provider.loadTransactions();
       
       Navigator.pop(context);
     }

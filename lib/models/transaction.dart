@@ -6,6 +6,7 @@ class Transaction {
   static const String colCategoryId = 'category_id';
   static const String colDate = 'date';
   static const String colIsRecurring = 'is_recurring';
+  static const String colRecurrenceCount = 'recurrence_count';
   static const String colNotes = 'notes';
 
   final int? id;
@@ -14,6 +15,7 @@ class Transaction {
   final int categoryId;
   final DateTime date;
   final bool isRecurring;
+  final int recurrenceCount;
   final String notes;
 
   Transaction({
@@ -23,6 +25,7 @@ class Transaction {
     required this.categoryId,
     required this.date,
     required this.isRecurring,
+    this.recurrenceCount = 0,
     this.notes = '',
   });
 
@@ -33,6 +36,7 @@ class Transaction {
     int? categoryId,
     DateTime? date,
     bool? isRecurring,
+    int? recurrenceCount,
     String? notes,
   }) =>
       Transaction(
@@ -42,6 +46,7 @@ class Transaction {
         categoryId: categoryId ?? this.categoryId,
         date: date ?? this.date,
         isRecurring: isRecurring ?? this.isRecurring,
+        recurrenceCount: recurrenceCount ?? this.recurrenceCount,
         notes: notes ?? this.notes,
       );
 
@@ -52,6 +57,7 @@ class Transaction {
         categoryId: map[colCategoryId],
         date: DateTime.parse(map[colDate]),
         isRecurring: map[colIsRecurring] == 1,
+        recurrenceCount: map[colRecurrenceCount] ?? 0,
         notes: map[colNotes],
       );
 
@@ -61,6 +67,7 @@ class Transaction {
         colCategoryId: categoryId,
         colDate: date.toIso8601String(),
         colIsRecurring: isRecurring ? 1 : 0,
+        colRecurrenceCount: recurrenceCount,
         colNotes: notes,
       };
 } 

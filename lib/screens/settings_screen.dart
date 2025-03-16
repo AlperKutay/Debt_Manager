@@ -47,7 +47,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               // Initial Day Setting
               const Text(
-                'Initial Day of Month',
+                'Starting Day of Interval',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

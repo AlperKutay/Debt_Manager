@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/transaction_provider.dart';
+import '../providers/settings_provider.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/transaction_list.dart';
 import '../widgets/upcoming_payments.dart';
+import '../widgets/current_month_transactions.dart';
 import 'add_transaction_screen.dart';
 import 'settings_screen.dart';
+import 'package:intl/intl.dart';
+import '../widgets/current_month_balance_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -102,26 +106,55 @@ class _HomeScreenState extends State<HomeScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         
+        // Get the initial day from settings
+        final initialDay = Provider.of<SettingsProvider>(context).settings.initialDay;
+        
+        // Calculate the current month's start and end dates
+        final now = DateTime.now();
+        DateTime currentMonthStart;
+        DateTime nextMonthStart;
+        
+        // If today is before the initial day of this month, the period starts from last month's initial day
+        if (now.day < initialDay) {
+          currentMonthStart = DateTime(now.year, now.month - 1, initialDay);
+          nextMonthStart = DateTime(now.year, now.month, initialDay);
+        } else {
+          // Otherwise, the period starts from this month's initial day
+          currentMonthStart = DateTime(now.year, now.month, initialDay);
+          nextMonthStart = DateTime(now.year, now.month + 1, initialDay);
+        }
+        
+        final dateFormat = DateFormat('MMM dd');
+        final dateRangeText = '${dateFormat.format(currentMonthStart)} - ${dateFormat.format(nextMonthStart.subtract(const Duration(days: 1)))}';
+        
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              BalanceCard(
-                balance: provider.balance,
-                income: provider.totalIncome,
-                expense: provider.totalExpense,
-              ),
+              const CurrentMonthBalanceCard(),
               const SizedBox(height: 24),
-              const Text(
-                'Recent Transactions',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Current Month',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    dateRangeText,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
-              const TransactionList(limit: 5),
+              const CurrentMonthTransactions(limit: 5),
               const SizedBox(height: 24),
               const Text(
                 'Upcoming Payments',

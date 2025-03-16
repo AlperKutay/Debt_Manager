@@ -73,6 +73,17 @@ class TransactionList extends StatelessWidget {
     final currencyFormat = _getCurrencyFormat(settingsProvider.settings.currency);
     final isIncome = transaction.type == 'income';
 
+    // Create the subtitle text
+    String subtitleText = dateFormat.format(transaction.date);
+    if (transaction.isRecurring) {
+      subtitleText += ' · Recurring';
+      if (transaction.recurrenceCount > 0) {
+        subtitleText += ' (${transaction.recurrenceCount} months)';
+      } else {
+        subtitleText += ' (indefinite)';
+      }
+    }
+
     return Slidable(
       endActionPane: ActionPane(
         motion: const ScrollMotion(),
@@ -116,9 +127,7 @@ class TransactionList extends StatelessWidget {
             ),
           ),
           title: Text(category.name),
-          subtitle: Text(
-            '${dateFormat.format(transaction.date)}${transaction.isRecurring ? ' · Recurring' : ''}',
-          ),
+          subtitle: Text(subtitleText),
           trailing: Text(
             currencyFormat.format(transaction.amount),
             style: TextStyle(

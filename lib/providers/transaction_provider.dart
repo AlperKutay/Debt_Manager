@@ -73,50 +73,150 @@ class TransactionProvider with ChangeNotifier {
       await DatabaseHelper.instance.deleteTransaction(id);
       _transactions.removeWhere((transaction) => transaction.id == id);
       notifyListeners();
+      
+      // Reload transactions to update the UI
+      await loadTransactions();
     } catch (e) {
       debugPrint('Error deleting transaction: $e');
     }
   }
 
   Future<List<app_model.Transaction>> getUpcomingTransactions() async {
-    final now = DateTime.now();
-    final nextMonth = DateTime(now.year, now.month + 1, now.day);
-    return await DatabaseHelper.instance.getUpcomingTransactions(now, nextMonth);
+    try {
+      final now = DateTime.now();
+      final threeMonthsLater = DateTime(now.year, now.month + 3, now.day);
+      return await DatabaseHelper.instance.getUpcomingTransactions(now, threeMonthsLater);
+    } catch (e) {
+      debugPrint('Error getting upcoming transactions: $e');
+      return [];
+    }
   }
 
-  void _scheduleRecurringTransaction(app_model.Transaction transaction, SettingsProvider? settingsProvider) {
+  void _scheduleRecurringTransaction(app_model.Transaction transaction, SettingsProvider? settingsProvider) async {
     // Get the initial day setting if available
     final initialDay = settingsProvider?.settings.initialDay ?? 1;
     
-    // Calculate the next month's date using the initial day
-    DateTime nextMonth;
-    
-    if (transaction.date.day == initialDay) {
-      // If the transaction is already on the initial day, just add a month
-      nextMonth = DateTime(
-        transaction.date.year,
-        transaction.date.month + 1,
-        initialDay,
+    // If recurrenceCount is 0, it's indefinite
+    // If it's greater than 0, we need to create that many recurring transactions
+    if (transaction.recurrenceCount > 0) {
+      // Create future transactions for the specified number of months
+      for (int i = 1; i <= transaction.recurrenceCount; i++) {
+        await _createFutureTransaction(transaction, initialDay, i);
+      }
+      
+      // Reload transactions to show the newly created recurring transactions
+      await loadTransactions();
+    } else if (transaction.recurrenceCount == 0) {
+      // For indefinite recurrence, we'll just log it for now
+      // In a real app, you might want to use a background service or scheduled tasks
+      debugPrint('Transaction set to recur indefinitely');
+    }
+  }
+
+  Future<void> _createFutureTransaction(app_model.Transaction transaction, int initialDay, int monthsAhead) async {
+    try {
+      // Calculate the future date
+      DateTime futureDate;
+      
+      if (transaction.date.day == initialDay) {
+        // If the transaction is already on the initial day, just add months
+        futureDate = DateTime(
+          transaction.date.year,
+          transaction.date.month + monthsAhead,
+          initialDay,
+        );
+      } else {
+        // Otherwise, use the initial day for future months
+        futureDate = DateTime(
+          transaction.date.year,
+          transaction.date.month + monthsAhead,
+          initialDay,
+        );
+      }
+      
+      // Handle invalid dates (e.g., February 31st)
+      if (futureDate.month > (transaction.date.month + monthsAhead) % 12) {
+        // If the month overflowed, use the last day of the month
+        futureDate = DateTime(
+          transaction.date.year,
+          transaction.date.month + monthsAhead,
+          0, // Last day of the previous month
+        );
+      }
+      
+      // Create a new transaction with the future date
+      final futureTransaction = transaction.copy(
+        id: null, // New transaction will get a new ID
+        date: futureDate,
+        isRecurring: false, // Future transactions are not recurring themselves
+        recurrenceCount: 0,
       );
+      
+      // Insert the future transaction
+      await DatabaseHelper.instance.insertTransaction(futureTransaction);
+      debugPrint('Created future transaction for: $futureDate');
+    } catch (e) {
+      debugPrint('Error creating future transaction: $e');
+    }
+  }
+
+  Future<List<app_model.Transaction>> getTransactionsForPeriod(DateTime startDate, DateTime endDate) async {
+    try {
+      return await DatabaseHelper.instance.getTransactionsForPeriod(startDate, endDate);
+    } catch (e) {
+      debugPrint('Error getting transactions for period: $e');
+      return [];
+    }
+  }
+
+  // Add these methods to calculate balance for a specific period
+  Future<double> getIncomeForPeriod(DateTime startDate, DateTime endDate) async {
+    final transactions = await getTransactionsForPeriod(startDate, endDate);
+    double total = 0.0;
+    for (var transaction in transactions) {
+      if (transaction.type == 'income') {
+        total += transaction.amount;
+      }
+    }
+    return total;
+  }
+
+  Future<double> getExpenseForPeriod(DateTime startDate, DateTime endDate) async {
+    final transactions = await getTransactionsForPeriod(startDate, endDate);
+    double total = 0.0;
+    for (var transaction in transactions) {
+      if (transaction.type == 'expense') {
+        total += transaction.amount;
+      }
+    }
+    return total;
+  }
+
+  Future<double> getBalanceForPeriod(DateTime startDate, DateTime endDate) async {
+    final income = await getIncomeForPeriod(startDate, endDate);
+    final expense = await getExpenseForPeriod(startDate, endDate);
+    return income - expense;
+  }
+
+  // Helper method to get the current period dates based on initial day
+  Map<String, DateTime> getCurrentPeriodDates(int initialDay) {
+    final now = DateTime.now();
+    DateTime currentMonthStart;
+    DateTime nextMonthStart;
+    
+    // If today is before the initial day of this month, the period starts from last month's initial day
+    if (now.day < initialDay) {
+      currentMonthStart = DateTime(now.year, now.month - 1, initialDay);
+      nextMonthStart = DateTime(now.year, now.month, initialDay);
     } else {
-      // Otherwise, use the initial day for the next month
-      nextMonth = DateTime(
-        transaction.date.year,
-        transaction.date.month + 1,
-        initialDay,
-      );
+      // Otherwise, the period starts from this month's initial day
+      currentMonthStart = DateTime(now.year, now.month, initialDay);
+      nextMonthStart = DateTime(now.year, now.month + 1, initialDay);
     }
     
-    // Handle invalid dates (e.g., February 31st)
-    if (nextMonth.month > transaction.date.month + 1) {
-      // If the month overflowed, use the last day of the month
-      nextMonth = DateTime(
-        transaction.date.year,
-        transaction.date.month + 1,
-        0, // Last day of the previous month
-      );
-    }
-    
-    debugPrint('Scheduled recurring transaction for: $nextMonth');
+    return {
+      'start': currentMonthStart,
+      'end': nextMonthStart,
+    };
   }
 } 

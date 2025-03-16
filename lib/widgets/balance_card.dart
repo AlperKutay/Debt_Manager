@@ -31,7 +31,7 @@ class BalanceCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Current Balance',
+              'Estimated Balance of Current Month',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,

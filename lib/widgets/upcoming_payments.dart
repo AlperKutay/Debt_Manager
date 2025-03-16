@@ -29,6 +29,10 @@ class UpcomingPayments extends StatelessWidget {
         }
 
         final upcomingTransactions = snapshot.data ?? [];
+        
+        // Filter transactions if needed (e.g., only show expenses)
+        // final filteredTransactions = upcomingTransactions.where((t) => t.type == 'expense').toList();
+        
         final limitedTransactions = limit != null && upcomingTransactions.length > limit!
             ? upcomingTransactions.take(limit!).toList()
             : upcomingTransactions;
@@ -58,7 +62,7 @@ class UpcomingPayments extends StatelessWidget {
                   ),
                 );
 
-                return _buildUpcomingPaymentItem(context, transaction, category);
+                return _buildPaymentItem(context, transaction, category);
               },
             );
           },
@@ -67,7 +71,7 @@ class UpcomingPayments extends StatelessWidget {
     );
   }
 
-  Widget _buildUpcomingPaymentItem(
+  Widget _buildPaymentItem(
     BuildContext context,
     app_model.Transaction transaction,
     app_model.Category category,
@@ -75,27 +79,44 @@ class UpcomingPayments extends StatelessWidget {
     final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     final dateFormat = DateFormat('MMM dd, yyyy');
     final currencyFormat = _getCurrencyFormat(settingsProvider.settings.currency);
+    final isIncome = transaction.type == 'income';
+    
+    // Create the subtitle text
+    String subtitleText = dateFormat.format(transaction.date);
+    if (transaction.isRecurring) {
+      subtitleText += ' · Recurring';
+      if (transaction.recurrenceCount > 0) {
+        subtitleText += ' (${transaction.recurrenceCount} months)';
+      } else {
+        subtitleText += ' (indefinite)';
+      }
+    }
+    
+    // Calculate days until this transaction
     final daysUntil = transaction.date.difference(DateTime.now()).inDays;
-
+    String daysText = daysUntil == 0 ? 'Today' : 
+                      daysUntil == 1 ? 'Tomorrow' : 
+                      'In $daysUntil days';
+    
+    subtitleText += ' · $daysText';
+    
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: Colors.blue.shade100,
-          child: const Icon(
-            Icons.calendar_today,
-            color: Colors.blue,
+          backgroundColor: isIncome ? Colors.green.shade100 : Colors.red.shade100,
+          child: Icon(
+            isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+            color: isIncome ? Colors.green : Colors.red,
           ),
         ),
         title: Text(category.name),
-        subtitle: Text(
-          '${dateFormat.format(transaction.date)} · ${daysUntil == 0 ? 'Today' : daysUntil == 1 ? 'Tomorrow' : 'In $daysUntil days'}',
-        ),
+        subtitle: Text(subtitleText),
         trailing: Text(
           currencyFormat.format(transaction.amount),
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: transaction.type == 'income' ? Colors.green : Colors.red,
+            color: isIncome ? Colors.green : Colors.red,
           ),
         ),
       ),
