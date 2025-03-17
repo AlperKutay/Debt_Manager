@@ -2,11 +2,9 @@ import 'package:flutter/foundation.dart';
 import '../data/database_helper.dart';
 import '../models/transaction.dart' as app_model;
 import 'settings_provider.dart';
-import '../models/category.dart' as app_model_category;
 
 class TransactionProvider with ChangeNotifier {
   List<app_model.Transaction> _transactions = [];
-  List<app_model_category.Category> _categories = [];
   bool _isLoading = false;
 
   List<app_model.Transaction> get transactions => _transactions;
@@ -32,7 +30,6 @@ class TransactionProvider with ChangeNotifier {
 
     try {
       _transactions = await DatabaseHelper.instance.getTransactions();
-      _categories = await DatabaseHelper.instance.getCategories();
     } catch (e) {
       debugPrint('Error loading transactions: $e');
     } finally {
@@ -44,13 +41,15 @@ class TransactionProvider with ChangeNotifier {
   Future<void> addTransaction(app_model.Transaction transaction, {SettingsProvider? settingsProvider}) async {
     try {
       final id = await DatabaseHelper.instance.insertTransaction(transaction);
+      final newTransaction = transaction.copy(id: id);
+      _transactions.add(newTransaction);
       
-      // If it's a recurring transaction, create future transactions
-      if (transaction.isRecurring && settingsProvider != null) {
-        await _createRecurringTransactions(transaction.copy(id: id), settingsProvider);
+      // If recurring, schedule for next month
+      if (transaction.isRecurring) {
+        _scheduleRecurringTransaction(newTransaction, settingsProvider);
       }
       
-      await loadTransactions();
+      notifyListeners();
     } catch (e) {
       debugPrint('Error adding transaction: $e');
     }
@@ -59,7 +58,11 @@ class TransactionProvider with ChangeNotifier {
   Future<void> updateTransaction(app_model.Transaction transaction) async {
     try {
       await DatabaseHelper.instance.updateTransaction(transaction);
-      await loadTransactions();
+      final index = _transactions.indexWhere((t) => t.id == transaction.id);
+      if (index != -1) {
+        _transactions[index] = transaction;
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error updating transaction: $e');
     }
@@ -68,23 +71,25 @@ class TransactionProvider with ChangeNotifier {
   Future<void> deleteTransaction(int id) async {
     try {
       await DatabaseHelper.instance.deleteTransaction(id);
+      _transactions.removeWhere((transaction) => transaction.id == id);
+      notifyListeners();
+      
+      // Reload transactions to update the UI
       await loadTransactions();
     } catch (e) {
       debugPrint('Error deleting transaction: $e');
     }
   }
 
-  List<app_model.Transaction> getUpcomingTransactions() {
-    final now = DateTime.now();
-    
-    return _transactions.where((t) {
-      return t.date.isAfter(now);
-    }).toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-  }
-
-  Future<List<app_model.Transaction>> getUpcomingTransactionsAsync() async {
-    return getUpcomingTransactions();
+  Future<List<app_model.Transaction>> getUpcomingTransactions() async {
+    try {
+      final now = DateTime.now();
+      final threeMonthsLater = DateTime(now.year, now.month + 3, now.day);
+      return await DatabaseHelper.instance.getUpcomingTransactions(now, threeMonthsLater);
+    } catch (e) {
+      debugPrint('Error getting upcoming transactions: $e');
+      return [];
+    }
   }
 
   void _scheduleRecurringTransaction(app_model.Transaction transaction, SettingsProvider? settingsProvider) async {
@@ -164,6 +169,7 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
+  // Add these methods to calculate balance for a specific period
   Future<double> getIncomeForPeriod(DateTime startDate, DateTime endDate) async {
     final transactions = await getTransactionsForPeriod(startDate, endDate);
     double total = 0.0;
@@ -192,6 +198,7 @@ class TransactionProvider with ChangeNotifier {
     return income - expense;
   }
 
+  // Helper method to get the current period dates based on initial day
   Map<String, DateTime> getCurrentPeriodDates(int initialDay) {
     final now = DateTime.now();
     DateTime currentMonthStart;
@@ -211,68 +218,5 @@ class TransactionProvider with ChangeNotifier {
       'start': currentMonthStart,
       'end': nextMonthStart,
     };
-  }
-
-  Future<void> _createRecurringTransactions(app_model.Transaction transaction, SettingsProvider settingsProvider) async {
-    final recurrenceCount = transaction.recurrenceCount;
-    final initialDay = settingsProvider.settings.initialDay;
-    
-    // If recurrenceCount is 0, it means indefinite, so we'll create 12 months of transactions
-    final count = recurrenceCount == 0 ? 12 : recurrenceCount;
-    
-    for (int i = 1; i <= count; i++) {
-      final nextDate = DateTime(
-        transaction.date.year,
-        transaction.date.month + i,
-        initialDay,
-      );
-      
-      final recurringTransaction = transaction.copy(
-        id: null, // New transaction will get a new ID
-        date: nextDate,
-        isRecurring: false, // These are the generated transactions, not recurring themselves
-        recurrenceCount: 0,
-      );
-      
-      await DatabaseHelper.instance.insertTransaction(recurringTransaction);
-    }
-  }
-
-  List<app_model.Transaction> getCurrentMonthTransactions() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0);
-    
-    return _transactions.where((t) {
-      return t.date.isAfter(startOfMonth.subtract(const Duration(days: 1))) && 
-             t.date.isBefore(endOfMonth.add(const Duration(days: 1)));
-    }).toList();
-  }
-
-  double getTotalIncome() {
-    final currentMonthTransactions = getCurrentMonthTransactions();
-    return currentMonthTransactions
-        .where((t) => t.type == 'income')
-        .fold(0, (sum, t) => sum + t.amount);
-  }
-
-  double getTotalExpense() {
-    final currentMonthTransactions = getCurrentMonthTransactions();
-    return currentMonthTransactions
-        .where((t) => t.type == 'expense')
-        .fold(0, (sum, t) => sum + t.amount);
-  }
-
-  String getCategoryName(int categoryId) {
-    try {
-      final category = _categories.firstWhere(
-        (c) => c.id == categoryId,
-        orElse: () => app_model_category.Category(name: 'Unknown', type: 'expense', icon: '0xe25c'),
-      );
-      return category.name;
-    } catch (e) {
-      debugPrint('Error getting category name: $e');
-      return 'Unknown';
-    }
   }
 } 

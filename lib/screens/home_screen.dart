@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/settings_provider.dart';
-import '../models/transaction.dart' as app_model;
+import '../widgets/balance_card.dart';
+import '../widgets/transaction_list.dart';
+import '../widgets/upcoming_payments.dart';
+import '../widgets/current_month_transactions.dart';
 import 'add_transaction_screen.dart';
-import 'transactions_screen.dart';
-import 'categories_screen.dart';
 import 'settings_screen.dart';
-import '../l10n/app_localizations.dart';
+import 'package:intl/intl.dart';
+import '../widgets/current_month_balance_card.dart';
+import '../screens/categories_screen.dart';
+import '../utils/app_strings.dart';
+import '../providers/language_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,322 +23,167 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  
+
   @override
   void initState() {
     super.initState();
-    // Load transactions when the screen opens
+    // Load transactions when the app starts
     Future.microtask(() {
       Provider.of<TransactionProvider>(context, listen: false).loadTransactions();
       Provider.of<SettingsProvider>(context, listen: false).loadSettings();
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      _buildHomeTab(),
-      const TransactionsScreen(),
-      const CategoriesScreen(),
-      const SettingsScreen(),
-    ];
+    final language = Provider.of<LanguageProvider>(context).currentLanguage;
     
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context).appTitle),
+        title: Text(AppStrings.get('Debt Manager', language: language)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
-      body: screens[_selectedIndex],
+      body: _buildBody(),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
+        type: BottomNavigationBarType.fixed,
         items: [
           BottomNavigationBarItem(
-            icon: const Icon(Icons.home),
-            label: AppLocalizations.of(context).home,
+            icon: const Icon(Icons.dashboard),
+            label: AppStrings.get('dashboard', language: language),
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.list),
-            label: AppLocalizations.of(context).transactions,
+            icon: const Icon(Icons.history),
+            label: AppStrings.get('transactions', language: language),
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.category),
-            label: AppLocalizations.of(context).categories,
+            label: AppStrings.get('categories', language: language),
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.settings),
-            label: AppLocalizations.of(context).settings,
+            icon: const Icon(Icons.calendar_today),
+            label: AppStrings.get('upcoming', language: language),
           ),
         ],
       ),
-      floatingActionButton: _selectedIndex == 0 || _selectedIndex == 1
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AddTransactionScreen(),
-                  ),
-                ).then((_) {
-                  // Refresh transactions when returning from add screen
-                  Provider.of<TransactionProvider>(context, listen: false).loadTransactions();
-                });
-              },
-              child: const Icon(Icons.add),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddTransactionScreen(),
+            ),
+          );
+        },
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
     );
   }
-  
-  Widget _buildHomeTab() {
-    return Consumer2<TransactionProvider, SettingsProvider>(
-      builder: (context, transactionProvider, settingsProvider, child) {
-        if (transactionProvider.isLoading) {
+
+  Widget _buildBody() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildDashboard();
+      case 1:
+        return const TransactionList();
+      case 2:
+        return const CategoriesScreen();
+      case 3:
+        return const UpcomingPayments();
+      default:
+        return _buildDashboard();
+    }
+  }
+
+  Widget _buildDashboard() {
+    return Consumer<TransactionProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
         
-        final currentMonthTransactions = transactionProvider.getCurrentMonthTransactions();
-        final upcomingTransactions = transactionProvider.getUpcomingTransactions();
+        // Get the initial day from settings
+        final initialDay = Provider.of<SettingsProvider>(context).settings.initialDay;
         
-        final totalIncome = transactionProvider.getTotalIncome();
-        final totalExpense = transactionProvider.getTotalExpense();
-        final balance = totalIncome - totalExpense;
+        // Calculate the current month's start and end dates
+        final now = DateTime.now();
+        DateTime currentMonthStart;
+        DateTime nextMonthStart;
         
-        final currencySymbol = _getCurrencySymbol(settingsProvider.settings.currency);
+        // If today is before the initial day of this month, the period starts from last month's initial day
+        if (now.day < initialDay) {
+          currentMonthStart = DateTime(now.year, now.month - 1, initialDay);
+          nextMonthStart = DateTime(now.year, now.month, initialDay);
+        } else {
+          // Otherwise, the period starts from this month's initial day
+          currentMonthStart = DateTime(now.year, now.month, initialDay);
+          nextMonthStart = DateTime(now.year, now.month + 1, initialDay);
+        }
         
+        final dateFormat = DateFormat('MMM dd');
+        final dateRangeText = '${dateFormat.format(currentMonthStart)} - ${dateFormat.format(nextMonthStart.subtract(const Duration(days: 1)))}';
+        final language = Provider.of<LanguageProvider>(context).currentLanguage;
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Summary Cards
-              Row(
+              const CurrentMonthBalanceCard(),
+              const SizedBox(height: 24),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      title: AppLocalizations.of(context).income,
-                      amount: totalIncome,
-                      currencySymbol: currencySymbol,
-                      color: Colors.green,
-                      icon: Icons.arrow_downward,
+                  Text(
+                    AppStrings.get('Current Month', language: language),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      title: AppLocalizations.of(context).expense,
-                      amount: totalExpense,
-                      currencySymbol: currencySymbol,
-                      color: Colors.red,
-                      icon: Icons.arrow_upward,
+                  Text(
+                    dateRangeText,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              _buildSummaryCard(
-                title: AppLocalizations.of(context).balance,
-                amount: balance,
-                currencySymbol: currencySymbol,
-                color: balance >= 0 ? Colors.blue : Colors.red,
-                icon: Icons.account_balance_wallet,
-                fullWidth: true,
-              ),
-              
+              const SizedBox(height: 8),
+              const CurrentMonthTransactions(limit: 5),
               const SizedBox(height: 24),
-              
-              // Current Month Transactions
               Text(
-                AppLocalizations.of(context).currentMonth,
+                AppStrings.get('Upcoming Payments', language: language),
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
-              
-              if (currentMonthTransactions.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  child: Center(
-                    child: Text(AppLocalizations.of(context).noTransactions),
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: currentMonthTransactions.length > 5 ? 5 : currentMonthTransactions.length,
-                  itemBuilder: (context, index) {
-                    return _buildTransactionItem(
-                      currentMonthTransactions[index],
-                      currencySymbol,
-                      transactionProvider,
-                    );
-                  },
-                ),
-              
-              if (currentMonthTransactions.length > 5)
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedIndex = 1; // Switch to transactions tab
-                    });
-                  },
-                  child: Text(AppLocalizations.of(context).viewAll),
-                ),
-              
-              const SizedBox(height: 24),
-              
-              // Upcoming Payments
-              Text(
-                AppLocalizations.of(context).upcomingPayments,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              
-              if (upcomingTransactions.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  child: Center(
-                    child: Text(AppLocalizations.of(context).noTransactions),
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: upcomingTransactions.length > 5 ? 5 : upcomingTransactions.length,
-                  itemBuilder: (context, index) {
-                    return _buildTransactionItem(
-                      upcomingTransactions[index],
-                      currencySymbol,
-                      transactionProvider,
-                    );
-                  },
-                ),
-              
-              if (upcomingTransactions.length > 5)
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedIndex = 1; // Switch to transactions tab
-                    });
-                  },
-                  child: Text(AppLocalizations.of(context).viewAll),
-                ),
+              const UpcomingPayments(limit: 3),
             ],
           ),
         );
       },
     );
   }
-  
-  Widget _buildSummaryCard({
-    required String title,
-    required double amount,
-    required String currencySymbol,
-    required Color color,
-    required IconData icon,
-    bool fullWidth = false,
-  }) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: fullWidth ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: fullWidth ? MainAxisAlignment.spaceBetween : MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: fullWidth ? 18 : 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Icon(icon, color: color),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$currencySymbol ${amount.toStringAsFixed(2)}',
-              style: TextStyle(
-                fontSize: fullWidth ? 24 : 20,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildTransactionItem(
-    app_model.Transaction transaction,
-    String currencySymbol,
-    TransactionProvider provider,
-  ) {
-    final categoryName = provider.getCategoryName(transaction.categoryId);
-    final isExpense = transaction.type == 'expense';
-    
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isExpense ? Colors.red : Colors.green,
-          child: Icon(
-            isExpense ? Icons.arrow_upward : Icons.arrow_downward,
-            color: Colors.white,
-          ),
-        ),
-        title: Text(categoryName),
-        subtitle: Text(DateFormat('MMM dd, yyyy').format(transaction.date)),
-        trailing: Text(
-          '$currencySymbol ${transaction.amount.toStringAsFixed(2)}',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: isExpense ? Colors.red : Colors.green,
-          ),
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddTransactionScreen(transaction: transaction),
-            ),
-          ).then((_) {
-            // Refresh transactions when returning from edit screen
-            provider.loadTransactions();
-          });
-        },
-      ),
-    );
-  }
-  
-  String _getCurrencySymbol(String currency) {
-    switch (currency) {
-      case 'EUR':
-        return '€';
-      case 'GBP':
-        return '£';
-      case 'JPY':
-        return '¥';
-      case 'TRY':
-        return '₺';
-      case 'USD':
-      default:
-        return '\$';
-    }
-  }
-}
+} 

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/restart_widget.dart';  // Import from utils
+import '../utils/app_strings.dart';
+import '../providers/language_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,15 +15,23 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _initialDayController = TextEditingController();
+  String _selectedLanguage = 'English';
   
   @override
   void initState() {
     super.initState();
+    
     // Load settings when the screen opens
     Future.microtask(() {
       final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
       settingsProvider.loadSettings().then((_) {
         _initialDayController.text = settingsProvider.settings.initialDay.toString();
+      });
+      
+      // Set the selected language based on the current language
+      final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
+      setState(() {
+        _selectedLanguage = languageProvider.currentLanguage == 'en' ? 'English' : 'Turkish';
       });
     });
   }
@@ -31,224 +41,233 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _initialDayController.dispose();
     super.dispose();
   }
-
+  
   @override
   Widget build(BuildContext context) {
+    final language = Provider.of<LanguageProvider>(context).currentLanguage;
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context).settings),
+        title: Text(AppStrings.get('settings', language: language)),
       ),
       body: Consumer<SettingsProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
+        builder: (context, settingsProvider, child) {
+          if (settingsProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
           
+          final settings = settingsProvider.settings;
+          final language = Provider.of<LanguageProvider>(context).currentLanguage;
           return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
               // Initial Day Setting
-              Text(
-                AppLocalizations.of(context).startingDayOfInterval,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppStrings.get('startingDay', language: language),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        AppStrings.get('startingDayHelp', language: language),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<int>(
+                        value: settings.initialDay,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                        items: List.generate(28, (index) {
+                          final day = index + 1;
+                          return DropdownMenuItem<int>(
+                            value: day,
+                            child: Text(AppStrings.get('Day $day', language: language)),
+                          );
+                        }),
+                        onChanged: (value) {
+                          if (value != null) {
+                            settingsProvider.updateInitialDay(value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                AppLocalizations.of(context).setDefaultDayDescription,
-                style: const TextStyle(
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _initialDayController,
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context).initialDay,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.calendar_today),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  final day = int.tryParse(value);
-                  if (day != null && day >= 1 && day <= 31) {
-                    provider.updateInitialDay(day);
-                  }
-                },
-                validator: (value) {
-                  final day = int.tryParse(value ?? '');
-                  if (day == null) {
-                    return AppLocalizations.of(context).pleaseEnterNumber;
-                  }
-                  if (day < 1 || day > 31) {
-                    return AppLocalizations.of(context).pleaseEnterValidNumber;
-                  }
-                  return null;
-                },
               ),
               
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               
               // Currency Setting
-              Text(
-                AppLocalizations.of(context).currency,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
-                value: provider.settings.currency,
-                items: const [
-                  DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
-                  DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
-                  DropdownMenuItem(value: 'GBP', child: Text('GBP (£)')),
-                  DropdownMenuItem(value: 'JPY', child: Text('JPY (¥)')),
-                  DropdownMenuItem(value: 'TRY', child: Text('TRY (₺)')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    provider.updateCurrency(value);
-                  }
-                },
-              ),
-              
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 24),
-              
-              // Theme Setting
-              Text(
-                AppLocalizations.of(context).themeMode,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.brightness_6),
-                ),
-                value: provider.settings.themeMode,
-                items: [
-                  DropdownMenuItem(
-                    value: 'system',
-                    child: Text(AppLocalizations.of(context).systemTheme),
-                  ),
-                  DropdownMenuItem(
-                    value: 'light',
-                    child: Text(AppLocalizations.of(context).lightTheme),
-                  ),
-                  DropdownMenuItem(
-                    value: 'dark',
-                    child: Text(AppLocalizations.of(context).darkTheme),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    provider.updateThemeMode(value);
-                  }
-                },
-              ),
-              
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 24),
-              
-              // Language Setting
-              Text(
-                AppLocalizations.of(context).language,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                title: Text(_getLanguageName(context)),
-                leading: const Icon(Icons.language),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                onTap: () => _showLanguageDialog(context),
-              ),
-              
-              // Debug buttons
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 24),
-              
-              ElevatedButton(
-                onPressed: () {
-                  final locale = Localizations.localeOf(context);
-                  final appLocale = AppLocalizations.of(context);
-                  
-                  // Create a list of all translation keys and their values
-                  final translations = {
-                    'appTitle': appLocale.appTitle,
-                    'home': appLocale.home,
-                    'language': appLocale.language,
-                    'transactions': appLocale.transactions,
-                    'income': appLocale.income,
-                    'expense': appLocale.expense,
-                    // Add more keys as needed
-                  };
-                  
-                  // Show a dialog with all translations
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                        title: Text('Translations for ${locale.languageCode}'),
-                        content: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: translations.entries.map((entry) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8.0),
-                                child: Text('${entry.key}: ${entry.value}'),
-                              );
-                            }).toList(),
-                          ),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppStrings.get('currency', language: language),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(appLocale.close),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: settings.currency,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                        items: [
+                          DropdownMenuItem<String>(
+                            value: 'USD',
+                            child: Text('US Dollar (\$)'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'EUR',
+                            child: Text('Euro (€)'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'GBP',
+                            child: Text('British Pound (£)'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'JPY',
+                            child: Text('Japanese Yen (¥)'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'TRY',
+                            child: Text('Turkish Lira (₺)'),
                           ),
                         ],
-                      );
-                    },
-                  );
-                },
-                child: Text('Debug All Translations'),
+                        onChanged: (value) {
+                          if (value != null) {
+                            settingsProvider.updateCurrency(value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => _forceLocaleChange('en'),
-                    child: Text('Force English'),
+              
+              const SizedBox(height: 16),
+              
+              // Language Setting
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppStrings.get('language', language: language),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _selectedLanguage,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                        items: [
+                          DropdownMenuItem<String>(
+                            value: 'English',
+                            child: Text(AppStrings.get('English', language: language)),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'Turkish',
+                            child: Text(AppStrings.get('Turkish', language: language)),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _selectedLanguage = value;
+                            });
+                            
+                            // Update the language provider
+                            final languageCode = value == 'English' ? 'en' : 'tr';
+                            Provider.of<LanguageProvider>(context, listen: false).setLanguage(languageCode);
+                            
+                            // Show a message that language change requires app restart
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(AppStrings.get('languageChangeMessage', 
+                                  language: languageCode)),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                  ElevatedButton(
-                    onPressed: () => _forceLocaleChange('tr'),
-                    child: Text('Force Turkish'),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Theme Setting
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppStrings.get('theme', language: language),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: settings.themeMode,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                        items: [
+                          DropdownMenuItem<String>(
+                            value: 'system',
+                            child: Text(AppStrings.get('systemDefault', language: language)),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'light',
+                            child: Text(AppStrings.get('light', language: language)),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'dark',
+                            child: Text(AppStrings.get('dark', language: language)),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            settingsProvider.updateThemeMode(value);
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ],
           );
@@ -344,7 +363,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Locale changed to $localeCode. Please check if translations are working.'),
-        duration: Duration(seconds: 5),
+        duration: Duration(seconds: 2),
       ),
     );
   }
