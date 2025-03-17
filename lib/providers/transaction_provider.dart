@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import '../data/database_helper.dart';
 import '../models/transaction.dart' as app_model;
 import 'settings_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
 
 class TransactionProvider with ChangeNotifier {
   List<app_model.Transaction> _transactions = [];
@@ -218,5 +220,9 @@ class TransactionProvider with ChangeNotifier {
       'start': currentMonthStart,
       'end': nextMonthStart,
     };
+  }
+
+  void refreshCategoryNames() {
+    notifyListeners();
   }
 } 

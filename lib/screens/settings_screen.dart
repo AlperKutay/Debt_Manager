@@ -204,7 +204,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             
                             // Update the language provider
                             final languageCode = value == 'English' ? 'en' : 'tr';
-                            Provider.of<LanguageProvider>(context, listen: false).setLanguage(languageCode);
+                            Provider.of<LanguageProvider>(context, listen: false).setLanguage(languageCode, context);
                             
                             // Show a message that language change requires app restart
                             ScaffoldMessenger.of(context).showSnackBar(

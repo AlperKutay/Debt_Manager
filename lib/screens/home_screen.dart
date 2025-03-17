@@ -13,6 +13,7 @@ import '../widgets/current_month_balance_card.dart';
 import '../screens/categories_screen.dart';
 import '../utils/app_strings.dart';
 import '../providers/language_provider.dart';
+import '../providers/category_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,9 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Load transactions when the app starts
+    // Load transactions and categories when the app starts
     Future.microtask(() {
       Provider.of<TransactionProvider>(context, listen: false).loadTransactions();
+      Provider.of<CategoryProvider>(context, listen: false).loadCategories();
       Provider.of<SettingsProvider>(context, listen: false).loadSettings();
     });
   }

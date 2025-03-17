@@ -60,6 +60,8 @@ class AppStrings {
       // New additions
       'English': 'English',
       'Turkish': 'Turkish (Türkçe)',
+      'unknownCategory': 'Unknown Category',
+      'noTransactionsFound': 'No transactions found',
     },
     'tr': {
       // Navigation
@@ -153,6 +155,8 @@ class AppStrings {
       'Day 26': 'Gün 26',
       'Day 27': 'Gün 27',
       'Day 28': 'Gün 28',
+      'unknownCategory': 'Bilinmeyen Kategori',
+      'noTransactionsFound': 'İşlem bulunamadı',
     },
   };
 

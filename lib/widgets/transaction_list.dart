@@ -8,154 +8,159 @@ import '../models/transaction.dart' as app_model;
 import '../models/category.dart' as app_model;
 import '../providers/settings_provider.dart';
 import '../screens/add_transaction_screen.dart';
+import '../providers/language_provider.dart';
+import '../utils/app_strings.dart';
 
 class TransactionList extends StatelessWidget {
-  final int? limit;
-
-  const TransactionList({super.key, this.limit});
+  final bool showAppBar;
+  final String? filter;
+  
+  const TransactionList({super.key, this.showAppBar = true, this.filter});
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<TransactionProvider, CategoryProvider>(
-      builder: (context, transactionProvider, categoryProvider, child) {
-        if (transactionProvider.isLoading || categoryProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+    // Listen to both transaction provider and language provider
+    final transactionProvider = Provider.of<TransactionProvider>(context);
+    final categoryProvider = Provider.of<CategoryProvider>(context);
+    final language = Provider.of<LanguageProvider>(context).currentLanguage;
+    
+    if (transactionProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    final transactions = filter == null 
+        ? transactionProvider.transactions 
+        : transactionProvider.transactions.where((t) => t.type == filter).toList();
+    
+    if (transactions.isEmpty) {
+      return Center(
+        child: Text(
+          AppStrings.get('noTransactionsFound', language: language),
+          style: const TextStyle(fontSize: 16),
+        ),
+      );
+    }
+    
+    return ListView.builder(
+      padding: const EdgeInsets.all(8.0),
+      itemCount: transactions.length,
+      itemBuilder: (context, index) {
+        final transaction = transactions[index];
+        
+        // Get category name
+        String? categoryName;
+        if (transaction.categoryId != null) {
+          // Check if categories are loaded
+          if (categoryProvider.categories.isNotEmpty) {
+            try {
+              final category = categoryProvider.categories.firstWhere(
+                (c) => c.id == transaction.categoryId,
+              );
+              categoryName = category.name;
+            } catch (e) {
+              // Category not found
+              categoryName = null;
+            }
+          } else {
+            // Categories not loaded yet
+            categoryName = null;
+          }
         }
-
-        final transactions = transactionProvider.transactions;
-        final limitedTransactions = limit != null && transactions.length > limit!
-            ? transactions.take(limit!).toList()
-            : transactions;
-
-        if (limitedTransactions.isEmpty) {
-          return const Center(
-            child: Text('No transactions yet. Add one!'),
-          );
-        }
-
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: limit != null
-              ? const NeverScrollableScrollPhysics()
-              : null,
-          itemCount: limitedTransactions.length,
-          itemBuilder: (context, index) {
-            final transaction = limitedTransactions[index];
-            final category = categoryProvider.categories.firstWhere(
-              (c) => c.id == transaction.categoryId,
-              orElse: () => app_model.Category(
-                name: 'Unknown',
-                type: transaction.type,
-                icon: 'help',
+        
+        final isExpense = transaction.type == 'expense';
+        
+        return Slidable(
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            children: [
+              SlidableAction(
+                onPressed: (context) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddTransactionScreen(transaction: transaction),
+                    ),
+                  );
+                },
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                icon: Icons.edit,
+                label: AppStrings.get('edit', language: language),
               ),
-            );
-
-            return _buildTransactionItem(
-              context,
-              transaction,
-              category,
-              transactionProvider,
-            );
-          },
+              SlidableAction(
+                onPressed: (context) {
+                  _showDeleteConfirmationDialog(context, transaction.id!, transactionProvider);
+                },
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                icon: Icons.delete,
+                label: AppStrings.get('delete', language: language),
+              ),
+            ],
+          ),
+          child: Card(
+            margin: const EdgeInsets.only(bottom: 8.0),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: isExpense ? Colors.red[100] : Colors.green[100],
+                child: Icon(
+                  isExpense ? Icons.arrow_downward : Icons.arrow_upward,
+                  color: isExpense ? Colors.red : Colors.green,
+                ),
+              ),
+              title: Text(
+                categoryName ?? AppStrings.get('unknownCategory', language: language),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                DateFormat('MMM dd, yyyy').format(transaction.date),
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              trailing: Text(
+                '${isExpense ? '-' : '+'}\$${transaction.amount.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: isExpense ? Colors.red : Colors.green,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddTransactionScreen(transaction: transaction),
+                  ),
+                );
+              },
+            ),
+          ),
         );
       },
     );
   }
 
-  Widget _buildTransactionItem(
-    BuildContext context,
-    app_model.Transaction transaction,
-    app_model.Category category,
-    TransactionProvider provider,
-  ) {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-    final dateFormat = DateFormat('MMM dd, yyyy');
-    final currencyFormat = _getCurrencyFormat(settingsProvider.settings.currency);
-    final isIncome = transaction.type == 'income';
-
-    // Create the subtitle text
-    String subtitleText = dateFormat.format(transaction.date);
-    if (transaction.isRecurring) {
-      subtitleText += ' · Recurring';
-      if (transaction.recurrenceCount > 0) {
-        subtitleText += ' (${transaction.recurrenceCount} months)';
-      } else {
-        subtitleText += ' (indefinite)';
-      }
-    }
-
-    return Slidable(
-      endActionPane: ActionPane(
-        motion: const ScrollMotion(),
-        children: [
-          SlidableAction(
-            onPressed: (context) {
-              // Navigate to edit transaction screen
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AddTransactionScreen(
-                    transaction: transaction,
-                  ),
-                ),
-              );
-            },
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            icon: Icons.edit,
-            label: 'Edit',
+  void _showDeleteConfirmationDialog(BuildContext context, int transactionId, TransactionProvider provider) {
+    final language = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppStrings.get('confirmDelete', language: language)),
+        content: Text(AppStrings.get('deleteTransactionConfirm', language: language)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppStrings.get('cancel', language: language)),
           ),
-          SlidableAction(
-            onPressed: (context) {
-              provider.deleteTransaction(transaction.id!);
+          TextButton(
+            onPressed: () {
+              provider.deleteTransaction(transactionId);
+              Navigator.pop(context);
             },
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            icon: Icons.delete,
-            label: 'Delete',
+            child: Text(AppStrings.get('delete', language: language)),
           ),
         ],
       ),
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: isIncome ? Colors.green.shade100 : Colors.red.shade100,
-            child: Icon(
-              isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-              color: isIncome ? Colors.green : Colors.red,
-            ),
-          ),
-          title: Text(category.name),
-          subtitle: Text(subtitleText),
-          trailing: Text(
-            currencyFormat.format(transaction.amount),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isIncome ? Colors.green : Colors.red,
-            ),
-          ),
-          onTap: () {
-            // Show transaction details
-          },
-        ),
-      ),
     );
-  }
-
-  NumberFormat _getCurrencyFormat(String currency) {
-    switch (currency) {
-      case 'EUR':
-        return NumberFormat.currency(symbol: '€');
-      case 'GBP':
-        return NumberFormat.currency(symbol: '£');
-      case 'JPY':
-        return NumberFormat.currency(symbol: '¥', decimalDigits: 0);
-      case 'TRY':
-        return NumberFormat.currency(symbol: '₺');
-      case 'USD':
-      default:
-        return NumberFormat.currency(symbol: '\$');
-    }
   }
 } 
