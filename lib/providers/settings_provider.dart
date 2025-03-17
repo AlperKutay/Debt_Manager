@@ -57,17 +57,8 @@ class SettingsProvider with ChangeNotifier {
   }
 
   Future<void> updateLocale(String locale) async {
-    if (_settings == null) await loadSettings();
-    
-    print("Updating locale to: $locale");
-    print("Current settings: ${_settings!.toMap()}");
-    
-    final updatedSettings = _settings!.copy(locale: locale);
-    print("Updated settings: ${updatedSettings.toMap()}");
-    
-    await updateSettings(updatedSettings);
-    
-    // Force app to rebuild with new locale
+    // Since we've removed locale from Settings, we don't need to update it
+    // Just notify listeners to rebuild the UI
     notifyListeners();
   }
 } 

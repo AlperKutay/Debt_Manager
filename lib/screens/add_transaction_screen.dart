@@ -7,7 +7,6 @@ import '../models/category.dart' as app_model;
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/settings_provider.dart';
-import '../l10n/app_localizations.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final app_model.Transaction? transaction;
@@ -83,21 +82,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Transaction Type Selector
-                  Text(
-                    AppLocalizations.of(context).transactionType,
+                  const Text(
+                    'Transaction Type',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   SegmentedButton<String>(
-                    segments: [
+                    segments: const [
                       ButtonSegment(
                         value: 'expense',
-                        label: Text(AppLocalizations.of(context).expense),
+                        label: Text('Expense'),
                         icon: Icon(Icons.arrow_upward),
                       ),
                       ButtonSegment(
                         value: 'income',
-                        label: Text(AppLocalizations.of(context).income),
+                        label: Text('Income'),
                         icon: Icon(Icons.arrow_downward),
                       ),
                     ],
@@ -117,7 +116,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     decoration: InputDecoration(
                       labelText: 'Amount',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.attach_money),
+                      //prefixIcon: Icon(Icons.attach_money),
                       prefixText: _getCurrencySymbol(Provider.of<SettingsProvider>(context).settings.currency),
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -134,8 +133,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const SizedBox(height: 16),
                   
                   // Category Dropdown
-                  Text(
-                    AppLocalizations.of(context).category,
+                  const Text(
+                    'Category',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -145,7 +144,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
                     value: _selectedCategoryId,
-                    hint: Text(AppLocalizations.of(context).selectCategory),
+                    hint: const Text('Select a category'),
                     items: (_transactionType == 'income' ? incomeCategories : expenseCategories)
                         .map((app_model.Category category) {
                       return DropdownMenuItem<int>(
@@ -160,7 +159,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     },
                     validator: (value) {
                       if (value == null) {
-                        return AppLocalizations.of(context).pleaseSelectCategory;
+                        return 'Please select a category';
                       }
                       return null;
                     },
@@ -168,8 +167,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const SizedBox(height: 16),
                   
                   // Date Picker
-                  Text(
-                    AppLocalizations.of(context).date,
+                  const Text(
+                    'Date',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -211,8 +210,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   // Recurring Switch
                   Row(
                     children: [
-                      Text(
-                        AppLocalizations.of(context).recurringMonthly,
+                      const Text(
+                        'Recurring Monthly',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
@@ -234,13 +233,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 16),
-                        Text(
-                          AppLocalizations.of(context).recurrenceCount,
+                        const Text(
+                          'Recurrence Count',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          AppLocalizations.of(context).recurrenceCountDescription,
+                        const Text(
+                          'How many months should this transaction recur? (0 for indefinite)',
                           style: TextStyle(
                             color: Colors.grey,
                             fontSize: 12,
@@ -257,13 +256,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           keyboardType: TextInputType.number,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return AppLocalizations.of(context).pleaseEnterNumber;
+                              return 'Please enter a number';
                             }
                             if (int.tryParse(value) == null) {
-                              return AppLocalizations.of(context).pleaseEnterValidNumber;
+                              return 'Please enter a valid number';
                             }
                             if (int.parse(value) < 0) {
-                              return AppLocalizations.of(context).pleaseEnterNonNegativeNumber;
+                              return 'Please enter a non-negative number';
                             }
                             return null;
                           },
@@ -289,12 +288,36 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: _saveTransaction,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                      ),
                       child: Text(
-                        widget.transaction == null ? AppLocalizations.of(context).addTransaction : AppLocalizations.of(context).updateTransaction,
+                        widget.transaction == null ? 'Add Transaction' : 'Update Transaction',
                         style: const TextStyle(fontSize: 16),
                       ),
                     ),
                   ),
+
+                  // If you have a delete button, make it red
+                  if (widget.transaction != null) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _deleteTransaction,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -335,6 +358,33 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       
       Navigator.pop(context);
     }
+  }
+
+  void _deleteTransaction() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete this transaction?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final provider = Provider.of<TransactionProvider>(context, listen: false);
+              provider.deleteTransaction(widget.transaction!.id!);
+              
+              // Close the dialog and the edit screen
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _getCurrencySymbol(String currency) {
