@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../models/transaction.dart' as app_model;
 import '../models/category.dart' as app_model;
 import '../providers/settings_provider.dart';
+import '../screens/add_transaction_screen.dart';
+import '../providers/language_provider.dart';
+import '../utils/app_strings.dart';
 
 class UpcomingPayments extends StatelessWidget {
   final int? limit;
@@ -14,6 +18,8 @@ class UpcomingPayments extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = Provider.of<LanguageProvider>(context).currentLanguage;
+    
     return FutureBuilder<List<app_model.Transaction>>(
       future: Provider.of<TransactionProvider>(context, listen: false)
           .getUpcomingTransactions(),
@@ -38,8 +44,8 @@ class UpcomingPayments extends StatelessWidget {
             : upcomingTransactions;
 
         if (limitedTransactions.isEmpty) {
-          return const Center(
-            child: Text('No upcoming payments'),
+          return Center(
+            child: Text(AppStrings.get('No upcoming payments', language: language)),
           );
         }
 
@@ -56,7 +62,7 @@ class UpcomingPayments extends StatelessWidget {
                 final category = categoryProvider.categories.firstWhere(
                   (c) => c.id == transaction.categoryId,
                   orElse: () => app_model.Category(
-                    name: 'Unknown',
+                    name: AppStrings.get('unknownCategory', language: language),
                     type: transaction.type,
                     icon: 'help',
                   ),
@@ -77,6 +83,9 @@ class UpcomingPayments extends StatelessWidget {
     app_model.Category category,
   ) {
     final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
+    final language = Provider.of<LanguageProvider>(context).currentLanguage;
+    
     final dateFormat = DateFormat('MMM dd, yyyy');
     final currencyFormat = _getCurrencyFormat(settingsProvider.settings.currency);
     final isIncome = transaction.type == 'income';
@@ -84,41 +93,110 @@ class UpcomingPayments extends StatelessWidget {
     // Create the subtitle text
     String subtitleText = dateFormat.format(transaction.date);
     if (transaction.isRecurring) {
-      subtitleText += ' · Recurring';
+      subtitleText += ' · ${AppStrings.get('Recurring', language: language)}';
       if (transaction.recurrenceCount > 0) {
-        subtitleText += ' (${transaction.recurrenceCount} months)';
+        subtitleText += ' (${transaction.recurrenceCount} ${AppStrings.get('months', language: language)})';
       } else {
-        subtitleText += ' (indefinite)';
+        subtitleText += ' (${AppStrings.get('indefinite', language: language)})';
       }
     }
     
     // Calculate days until this transaction
     final daysUntil = transaction.date.difference(DateTime.now()).inDays;
-    String daysText = daysUntil == 0 ? 'Today' : 
-                      daysUntil == 1 ? 'Tomorrow' : 
-                      'In $daysUntil days';
+    String daysText = daysUntil == 0 ? AppStrings.get('Today', language: language) : 
+                      daysUntil == 1 ? AppStrings.get('Tomorrow', language: language) : 
+                      '${AppStrings.get('In', language: language)} $daysUntil ${AppStrings.get('days', language: language)}';
     
     subtitleText += ' · $daysText';
     
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isIncome ? Colors.green.shade100 : Colors.red.shade100,
-          child: Icon(
-            isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-            color: isIncome ? Colors.green : Colors.red,
+    return Slidable(
+      endActionPane: ActionPane(
+        motion: const ScrollMotion(),
+        children: [
+          SlidableAction(
+            onPressed: (context) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddTransactionScreen(transaction: transaction),
+                ),
+              ).then((_) {
+                // This will refresh the upcoming payments list
+                transactionProvider.loadTransactions();
+              });
+            },
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            icon: Icons.edit,
+            label: AppStrings.get('edit', language: language),
           ),
-        ),
-        title: Text(category.name),
-        subtitle: Text(subtitleText),
-        trailing: Text(
-          currencyFormat.format(transaction.amount),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: isIncome ? Colors.green : Colors.red,
+          SlidableAction(
+            onPressed: (context) {
+              _showDeleteConfirmationDialog(context, transaction.id!, transactionProvider);
+            },
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            icon: Icons.delete,
+            label: AppStrings.get('delete', language: language),
           ),
+        ],
+      ),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: isIncome ? Colors.green.shade100 : Colors.red.shade100,
+            child: Icon(
+              isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+              color: isIncome ? Colors.green : Colors.red,
+            ),
+          ),
+          title: Text(category.name),
+          subtitle: Text(subtitleText),
+          trailing: Text(
+            currencyFormat.format(transaction.amount),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isIncome ? Colors.green : Colors.red,
+            ),
+          ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddTransactionScreen(transaction: transaction),
+              ),
+            ).then((_) {
+              // This will refresh the upcoming payments list
+              transactionProvider.loadTransactions();
+            });
+          },
         ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context, int transactionId, TransactionProvider provider) {
+    final language = Provider.of<LanguageProvider>(context, listen: false).currentLanguage;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppStrings.get('confirmDelete', language: language)),
+        content: Text(AppStrings.get('deleteTransactionConfirm', language: language)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppStrings.get('cancel', language: language)),
+          ),
+          TextButton(
+            onPressed: () {
+              provider.deleteTransaction(transactionId);
+              Navigator.pop(context);
+            },
+            child: Text(AppStrings.get('delete', language: language)),
+          ),
+        ],
       ),
     );
   }
