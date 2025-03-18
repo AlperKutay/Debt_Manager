@@ -4,6 +4,8 @@ import '../providers/category_provider.dart';
 import '../models/category.dart' as app_model;
 import '../utils/icon_map.dart';
 import 'add_category_screen.dart';
+import '../utils/app_strings.dart';
+import '../providers/language_provider.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -34,17 +36,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final language = Provider.of<LanguageProvider>(context).currentLanguage;
+    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Categories'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Income'),
-            Tab(text: 'Expense'),
-          ],
-        ),
-      ),
       body: Consumer<CategoryProvider>(
         builder: (context, categoryProvider, child) {
           if (categoryProvider.isLoading) {
@@ -54,74 +48,103 @@ class _CategoriesScreenState extends State<CategoriesScreen> with SingleTickerPr
           final incomeCategories = categoryProvider.getByType('income');
           final expenseCategories = categoryProvider.getByType('expense');
           
-          return TabBarView(
-            controller: _tabController,
+          return Column(
             children: [
-              _buildCategoryList(incomeCategories, 'income'),
-              _buildCategoryList(expenseCategories, 'expense'),
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: AppStrings.get('income', language: language)),
+                  Tab(text: AppStrings.get('expense', language: language)),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildCategoryListWithAddButton(incomeCategories, 'income'),
+                    _buildCategoryListWithAddButton(expenseCategories, 'expense'),
+                  ],
+                ),
+              ),
             ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddCategoryScreen(
-                type: _tabController.index == 0 ? 'income' : 'expense',
-              ),
-            ),
-          ).then((_) {
-            // Refresh categories when returning from add screen
-            Provider.of<CategoryProvider>(context, listen: false).loadCategories();
-          });
-        },
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
-  Widget _buildCategoryList(List<app_model.Category> categories, String type) {
-    if (categories.isEmpty) {
-      return Center(
-        child: Text('No ${type} categories found'),
-      );
-    }
+  Widget _buildCategoryListWithAddButton(List<app_model.Category> categories, String type) {
+    final language = Provider.of<LanguageProvider>(context).currentLanguage;
     
-    return ListView.builder(
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        final category = categories[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: type == 'income' ? Colors.green.shade100 : Colors.red.shade100,
-            child: Icon(
-              IconMap.getIcon(category.icon),
-              color: type == 'income' ? Colors.green : Colors.red,
+    return Column(
+      children: [
+        Expanded(
+          child: categories.isEmpty
+              ? Center(
+                  child: Text(AppStrings.get('noCategoriesFound', language: language)),
+                )
+              : ListView.builder(
+                  itemCount: categories.length,
+                  itemBuilder: (context, index) {
+                    final category = categories[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: type == 'income' ? Colors.green.shade100 : Colors.red.shade100,
+                        child: Icon(
+                          IconMap.getIcon(category.icon),
+                          color: type == 'income' ? Colors.green : Colors.red,
+                        ),
+                      ),
+                      title: Text(category.name),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddCategoryScreen(
+                                category: category,
+                              ),
+                            ),
+                          ).then((_) {
+                            // Refresh categories when returning from edit screen
+                            Provider.of<CategoryProvider>(context, listen: false).loadCategories();
+                          });
+                        },
+                      ),
+                    );
+                  },
+                ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddCategoryScreen(
+                      type: type,
+                    ),
+                  ),
+                ).then((_) {
+                  // Refresh categories when returning from add screen
+                  Provider.of<CategoryProvider>(context, listen: false).loadCategories();
+                });
+              },
+              icon: const Icon(Icons.add),
+              label: Text(AppStrings.get('addCategory', language: language)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
             ),
           ),
-          title: Text(category.name),
-          trailing: IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AddCategoryScreen(
-                    category: category,
-                  ),
-                ),
-              ).then((_) {
-                // Refresh categories when returning from edit screen
-                Provider.of<CategoryProvider>(context, listen: false).loadCategories();
-              });
-            },
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 } 

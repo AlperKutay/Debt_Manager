@@ -120,28 +120,19 @@ class TransactionProvider with ChangeNotifier {
       // Calculate the future date
       DateTime futureDate;
       
-      if (transaction.date.day == initialDay) {
-        // If the transaction is already on the initial day, just add months
-        futureDate = DateTime(
-          transaction.date.year,
-          transaction.date.month + monthsAhead,
-          initialDay,
-        );
-      } else {
-        // Otherwise, use the initial day for future months
-        futureDate = DateTime(
-          transaction.date.year,
-          transaction.date.month + monthsAhead,
-          initialDay,
-        );
-      }
+      // Use the same day of month as the original transaction
+      futureDate = DateTime(
+        transaction.date.year,
+        transaction.date.month + monthsAhead,
+        transaction.date.day,
+      );
       
       // Handle invalid dates (e.g., February 31st)
       if (futureDate.month > (transaction.date.month + monthsAhead) % 12) {
         // If the month overflowed, use the last day of the month
         futureDate = DateTime(
           transaction.date.year,
-          transaction.date.month + monthsAhead,
+          transaction.date.month + monthsAhead + 1,
           0, // Last day of the previous month
         );
       }
