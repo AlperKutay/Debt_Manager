@@ -11,18 +11,42 @@ import '../screens/add_transaction_screen.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_strings.dart';
 
-class UpcomingPayments extends StatelessWidget {
+class UpcomingPayments extends StatefulWidget {
   final int? limit;
 
   const UpcomingPayments({super.key, this.limit});
+
+  @override
+  State<UpcomingPayments> createState() => _UpcomingPaymentsState();
+}
+
+class _UpcomingPaymentsState extends State<UpcomingPayments> {
+  // Use a key to force rebuild of the FutureBuilder
+  Key _futureBuilderKey = UniqueKey();
+  late TransactionProvider _transactionProvider;
+  
+  @override
+  void initState() {
+    super.initState();
+    _transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
+    _transactionProvider.addListener(_refreshWidget);
+  }
+  
+  void _refreshWidget() {
+    if (mounted) {
+      setState(() {
+        _futureBuilderKey = UniqueKey();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final language = Provider.of<LanguageProvider>(context).currentLanguage;
     
     return FutureBuilder<List<app_model.Transaction>>(
-      future: Provider.of<TransactionProvider>(context, listen: false)
-          .getUpcomingTransactions(),
+      key: _futureBuilderKey,
+      future: _transactionProvider.getUpcomingTransactions(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -39,8 +63,8 @@ class UpcomingPayments extends StatelessWidget {
         // Filter transactions if needed (e.g., only show expenses)
         // final filteredTransactions = upcomingTransactions.where((t) => t.type == 'expense').toList();
         
-        final limitedTransactions = limit != null && upcomingTransactions.length > limit!
-            ? upcomingTransactions.take(limit!).toList()
+        final limitedTransactions = widget.limit != null && upcomingTransactions.length > widget.limit!
+            ? upcomingTransactions.take(widget.limit!).toList()
             : upcomingTransactions;
 
         if (limitedTransactions.isEmpty) {
@@ -53,7 +77,7 @@ class UpcomingPayments extends StatelessWidget {
           builder: (context, categoryProvider, child) {
             return ListView.builder(
               shrinkWrap: true,
-              physics: limit != null
+              physics: widget.limit != null
                   ? const NeverScrollableScrollPhysics()
                   : null,
               itemCount: limitedTransactions.length,
@@ -75,6 +99,12 @@ class UpcomingPayments extends StatelessWidget {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _transactionProvider.removeListener(_refreshWidget);
+    super.dispose();
   }
 
   Widget _buildPaymentItem(
@@ -121,7 +151,7 @@ class UpcomingPayments extends StatelessWidget {
                   builder: (context) => AddTransactionScreen(transaction: transaction),
                 ),
               ).then((_) {
-                // This will refresh the upcoming payments list
+                // Refresh transactions
                 transactionProvider.loadTransactions();
               });
             },
@@ -167,7 +197,7 @@ class UpcomingPayments extends StatelessWidget {
                 builder: (context) => AddTransactionScreen(transaction: transaction),
               ),
             ).then((_) {
-              // This will refresh the upcoming payments list
+              // Refresh transactions
               transactionProvider.loadTransactions();
             });
           },

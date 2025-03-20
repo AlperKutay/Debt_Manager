@@ -356,6 +356,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       // Refresh transactions list
       provider.loadTransactions();
       
+      // Refresh upcoming payments and other transaction-related widgets
+      Future.microtask(() {
+        // This will trigger a rebuild of all widgets that depend on TransactionProvider
+        provider.notifyListeners();
+      });
+      
       Navigator.pop(context);
     }
   }
