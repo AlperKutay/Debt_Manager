@@ -12,35 +12,52 @@ import 'l10n/app_localizations.dart';
 import 'utils/app_strings.dart';
 
 void main() async {
+  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize the database
-  await DatabaseHelper.instance.initialize();
-  
-  await NotificationService().initNotification();
-  
-  // Create providers first
-  final transactionProvider = TransactionProvider();
-  
-  runApp(
-    RestartWidget(
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider.value(value: transactionProvider),
-          ChangeNotifierProvider(create: (_) => CategoryProvider()),
-          ChangeNotifierProvider(create: (_) => SettingsProvider()),
-          ChangeNotifierProvider(create: (_) => LanguageProvider()),
-        ],
-        child: Builder(
-          builder: (context) {
-            // Set context after the provider is available in the widget tree
-            transactionProvider.setContext(context);
-            return const MyApp();
-          },
+  try {
+    // Initialize the database
+    await DatabaseHelper.instance.initialize();
+    
+    // Comment out the notification initialization since the service is missing
+    // await NotificationService().initNotification();
+    
+    // Create providers first
+    final transactionProvider = TransactionProvider();
+    
+    runApp(
+      RestartWidget(
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: transactionProvider),
+            ChangeNotifierProvider(create: (_) => CategoryProvider()),
+            ChangeNotifierProvider(create: (_) => SettingsProvider()),
+            ChangeNotifierProvider(create: (_) => LanguageProvider()),
+          ],
+          child: Builder(
+            builder: (context) {
+              // Set context after the provider is available in the widget tree
+              transactionProvider.setContext(context);
+              return const MyApp();
+            },
+          ),
         ),
       ),
-    ),
-  );
+    );
+  } catch (e) {
+    // Handle initialization errors
+    print('Error initializing app: $e');
+    // Run a minimal error app
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text('Error initializing app: $e'),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -53,6 +70,7 @@ class MyApp extends StatelessWidget {
     
     // Load settings if not already loaded
     if (settingsProvider.settings.id == null) {
+      // Use Future.microtask to avoid calling setState during build
       Future.microtask(() => settingsProvider.loadSettings());
     }
     

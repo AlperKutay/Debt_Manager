@@ -1,7 +1,19 @@
+import 'package:flutter/material.dart';
+
 class NotificationService {
+  // Singleton pattern
+  static final NotificationService _instance = NotificationService._internal();
+  
+  factory NotificationService() {
+    return _instance;
+  }
+  
+  NotificationService._internal();
+  
   Future<void> initNotification() async {
-    // Placeholder for future implementation
-    print('Notifications temporarily disabled');
+    // Placeholder for notification initialization
+    debugPrint('Notification service initialized');
+    // Implement actual notification logic here if needed
   }
 
   Future<void> showNotification({
