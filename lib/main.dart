@@ -10,6 +10,7 @@ import 'providers/language_provider.dart';
 import 'utils/restart_widget.dart';
 import 'l10n/app_localizations.dart';
 import 'utils/app_strings.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   // Ensure Flutter is initialized
@@ -19,8 +20,8 @@ void main() async {
     // Initialize the database
     await DatabaseHelper.instance.initialize();
     
-    // Comment out the notification initialization since the service is missing
-    // await NotificationService().initNotification();
+    // Initialize notifications
+    await NotificationService().initNotification();
     
     // Create providers first
     final transactionProvider = TransactionProvider();
@@ -74,8 +75,8 @@ class MyApp extends StatelessWidget {
       Future.microtask(() => settingsProvider.loadSettings());
     }
     
-    // Get the theme mode from settings
-    ThemeMode themeMode = ThemeMode.system;
+    // Determine theme mode
+    ThemeMode themeMode;
     switch (settingsProvider.settings.themeMode) {
       case 'light':
         themeMode = ThemeMode.light;
@@ -98,6 +99,9 @@ class MyApp extends StatelessWidget {
       home: const HomeScreen(),
       localizationsDelegates: const [
         AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
         Locale('en', ''),

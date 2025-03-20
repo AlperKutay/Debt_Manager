@@ -13,11 +13,13 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 class MonthlyTransactionsScreen extends StatefulWidget {
   final DateTime periodStart;
   final String monthName;
+  final double? savings;
 
   const MonthlyTransactionsScreen({
     super.key,
     required this.periodStart,
     required this.monthName,
+    this.savings,
   });
 
   @override
@@ -114,6 +116,12 @@ class _MonthlyTransactionsScreenState extends State<MonthlyTransactionsScreen> {
                           AppStrings.get('balance', language: language),
                           balance,
                           balance >= 0 ? Colors.green : Colors.red,
+                          currencyFormat,
+                        ),
+                        _buildSummaryItem(
+                          AppStrings.get('savings', language: language),
+                          widget.savings ?? 0.0,
+                          Colors.blue,
                           currencyFormat,
                         ),
                       ],

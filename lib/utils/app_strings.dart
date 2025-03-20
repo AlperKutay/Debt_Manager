@@ -63,6 +63,7 @@ class AppStrings {
       'unknownCategory': 'Unknown Category',
       'noTransactionsFound': 'No transactions found',
       'monthlyReview': 'Monthly Review',
+      'savings': 'Savings',
     },
     'tr': {
       // Navigation
@@ -159,6 +160,7 @@ class AppStrings {
       'unknownCategory': 'Bilinmeyen Kategori',
       'noTransactionsFound': 'İşlem bulunamadı',
       'monthlyReview': 'Aylık İnceleme',
+      'savings': 'Birikim',
     },
   };
 

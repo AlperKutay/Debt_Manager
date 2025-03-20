@@ -64,21 +64,21 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
     final Map<String, Map<String, dynamic>> monthlyTotals = {};
     
     for (final transaction in transactions) {
-      // Determine which month period this transaction belongs to
       final date = transaction.date;
-      DateTime periodStart;
       
-      // If the day is before the initial day, it belongs to the previous month's period
+      // Determine which period this transaction belongs to
+      DateTime periodStart;
       if (date.day < initialDay) {
+        // If the transaction date is before the initial day, it belongs to the previous month's period
         periodStart = DateTime(date.year, date.month - 1, initialDay);
       } else {
+        // Otherwise, it belongs to the current month's period
         periodStart = DateTime(date.year, date.month, initialDay);
       }
       
-      // Create a key for this month period (e.g., "2023-03")
-      final monthKey = DateFormat('yyyy-MM').format(periodStart);
+      final monthKey = '${periodStart.year}-${periodStart.month.toString().padLeft(2, '0')}';
       
-      // Initialize this month in our map if it doesn't exist
+      // Initialize the month data if it doesn't exist
       if (!monthlyTotals.containsKey(monthKey)) {
         monthlyTotals[monthKey] = {
           'periodStart': periodStart,
@@ -95,7 +95,7 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
       }
     }
     
-    // Convert to a list and sort by date
+    // Convert to a list and calculate balance for each month
     final monthsList = monthlyTotals.entries.map((entry) {
       final data = entry.value;
       data['balance'] = data['income'] - data['expense'];
@@ -105,6 +105,19 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
     
     // Sort by date (oldest first)
     monthsList.sort((a, b) => (a['periodStart'] as DateTime).compareTo(b['periodStart'] as DateTime));
+    
+    // First month has no savings from previous month
+    if (monthsList.isNotEmpty) {
+      monthsList[0]['savings'] = 0.0;
+    }
+    
+    // Calculate savings (previous month's balance + savings)
+    for (int i = 1; i < monthsList.length; i++) {
+      // Current month's savings is the previous month's balance + previous month's savings
+      final previousBalance = monthsList[i-1]['balance'] as double;
+      final previousSavings = monthsList[i-1]['savings'] as double;
+      monthsList[i]['savings'] = previousBalance + previousSavings;
+    }
     
     if (mounted) {
       setState(() {
@@ -117,7 +130,8 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final language = Provider.of<LanguageProvider>(context).currentLanguage;
-    final currencyFormat = _getCurrencyFormat(_settingsProvider.settings.currency);
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+    final currencyFormat = _getCurrencyFormat(settingsProvider.settings.currency);
     
     return Scaffold(
       appBar: AppBar(
@@ -129,85 +143,92 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _monthlyData.isEmpty
-                ? Center(
-                    child: Text(AppStrings.get('noTransactionsFound', language: language)),
-                  )
-                : ListView.builder(
-                    itemCount: _monthlyData.length,
-                    itemBuilder: (context, index) {
-                      final monthData = _monthlyData[index];
-                      final periodStart = monthData['periodStart'] as DateTime;
-                      final income = monthData['income'] as double;
-                      final expense = monthData['expense'] as double;
-                      final balance = monthData['balance'] as double;
-                      
-                      // Format the month name (e.g., "March 2023")
-                      final monthName = DateFormat('MMMM yyyy').format(periodStart);
-                      
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: InkWell(
-                          onTap: () {
-                            // Navigate to detailed view for this month
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => MonthlyTransactionsScreen(
-                                  periodStart: periodStart,
-                                  monthName: monthName,
-                                ),
-                              ),
-                            ).then((_) => _refreshData());
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  monthName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _refreshData,
+              child: _monthlyData.isEmpty
+                  ? Center(
+                      child: Text(AppStrings.get('noTransactionsFound', language: language)),
+                    )
+                  : ListView.builder(
+                      itemCount: _monthlyData.length,
+                      itemBuilder: (context, index) {
+                        final monthData = _monthlyData[index];
+                        final periodStart = monthData['periodStart'] as DateTime;
+                        final income = monthData['income'] as double;
+                        final expense = monthData['expense'] as double;
+                        final balance = monthData['balance'] as double;
+                        final savings = monthData['savings'] as double? ?? 0.0;
+                        
+                        // Format the month name
+                        final monthName = DateFormat('MMMM yyyy').format(periodStart);
+                        
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MonthlyTransactionsScreen(
+                                    periodStart: periodStart,
+                                    monthName: monthName,
+                                    savings: savings,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    _buildFinancialItem(
-                                      AppStrings.get('income', language: language),
-                                      income,
-                                      Colors.green,
-                                      currencyFormat,
+                              ).then((_) => _refreshData());
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    monthName,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    _buildFinancialItem(
-                                      AppStrings.get('expense', language: language),
-                                      expense,
-                                      Colors.red,
-                                      currencyFormat,
-                                    ),
-                                    _buildFinancialItem(
-                                      AppStrings.get('balance', language: language),
-                                      balance,
-                                      balance >= 0 ? Colors.green : Colors.red,
-                                      currencyFormat,
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      _buildFinancialItem(
+                                        AppStrings.get('income', language: language),
+                                        income,
+                                        Colors.green,
+                                        currencyFormat,
+                                      ),
+                                      _buildFinancialItem(
+                                        AppStrings.get('expense', language: language),
+                                        expense,
+                                        Colors.red,
+                                        currencyFormat,
+                                      ),
+                                      _buildFinancialItem(
+                                        AppStrings.get('balance', language: language),
+                                        balance,
+                                        balance >= 0 ? Colors.green : Colors.red,
+                                        currencyFormat,
+                                      ),
+                                      _buildFinancialItem(
+                                        AppStrings.get('savings', language: language),
+                                        savings,
+                                        Colors.blue,
+                                        currencyFormat,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-      ),
+                        );
+                      },
+                    ),
+            ),
     );
   }
 
