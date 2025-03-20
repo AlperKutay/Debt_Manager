@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 class TransactionProvider with ChangeNotifier {
   List<app_model.Transaction> _transactions = [];
   bool _isLoading = false;
+  BuildContext? _context;
 
   List<app_model.Transaction> get transactions => _transactions;
   bool get isLoading => _isLoading;
@@ -59,12 +60,46 @@ class TransactionProvider with ChangeNotifier {
 
   Future<void> updateTransaction(app_model.Transaction transaction) async {
     try {
+      // Get the original transaction before updating
+      final originalTransaction = _transactions.firstWhere(
+        (t) => t.id == transaction.id,
+        orElse: () => transaction,
+      );
+      
+      // Update the transaction in the database
       await DatabaseHelper.instance.updateTransaction(transaction);
+      
+      // Find and update the transaction in our local list
       final index = _transactions.indexWhere((t) => t.id == transaction.id);
       if (index != -1) {
         _transactions[index] = transaction;
-        notifyListeners();
       }
+      
+      // Handle changes in recurring settings
+      if (transaction.isRecurring) {
+        // If recurrence count increased or it's newly set to recurring
+        if (!originalTransaction.isRecurring || 
+            transaction.recurrenceCount > originalTransaction.recurrenceCount) {
+          
+          // Delete any existing future recurring instances
+          await _deleteFutureRecurringInstances(transaction.id!);
+          
+          // Create new recurring instances based on updated settings
+          if (_context != null) {
+            final settingsProvider = Provider.of<SettingsProvider>(_context!, listen: false);
+            _scheduleRecurringTransaction(transaction, settingsProvider);
+          }
+        }
+      } else if (originalTransaction.isRecurring && !transaction.isRecurring) {
+        // If transaction was recurring but is no longer recurring
+        await _deleteFutureRecurringInstances(transaction.id!);
+      }
+      
+      // Reload all transactions to ensure everything is in sync
+      await loadTransactions();
+      
+      // Explicitly notify listeners to ensure all widgets update
+      notifyListeners();
     } catch (e) {
       debugPrint('Error updating transaction: $e');
     }
@@ -74,10 +109,12 @@ class TransactionProvider with ChangeNotifier {
     try {
       await DatabaseHelper.instance.deleteTransaction(id);
       _transactions.removeWhere((transaction) => transaction.id == id);
-      notifyListeners();
       
-      // Reload transactions to update the UI
+      // Reload all transactions to ensure everything is in sync
       await loadTransactions();
+      
+      // Explicitly notify listeners to ensure all widgets update
+      notifyListeners();
     } catch (e) {
       debugPrint('Error deleting transaction: $e');
     }
@@ -143,6 +180,9 @@ class TransactionProvider with ChangeNotifier {
         date: futureDate,
         isRecurring: false, // Future transactions are not recurring themselves
         recurrenceCount: 0,
+        // Add a reference to the original transaction in the notes
+        notes: transaction.notes + (transaction.notes.isEmpty ? '' : ' ') + 
+               'Recurring from ID: ${transaction.id}',
       );
       
       // Insert the future transaction
@@ -215,5 +255,33 @@ class TransactionProvider with ChangeNotifier {
 
   void refreshCategoryNames() {
     notifyListeners();
+  }
+
+  // Add this method to delete future recurring instances
+  Future<void> _deleteFutureRecurringInstances(int originalTransactionId) async {
+    try {
+      // Get all transactions that were created as recurring instances
+      final now = DateTime.now();
+      final futureTransactions = _transactions.where((t) => 
+        t.notes.contains('Recurring from ID: $originalTransactionId') && 
+        t.date.isAfter(now)
+      ).toList();
+      
+      // Delete each future recurring instance
+      for (final transaction in futureTransactions) {
+        if (transaction.id != null) {
+          await DatabaseHelper.instance.deleteTransaction(transaction.id!);
+        }
+      }
+      
+      debugPrint('Deleted future recurring instances for transaction ID: $originalTransactionId');
+    } catch (e) {
+      debugPrint('Error deleting future recurring instances: $e');
+    }
+  }
+
+  // Add this method to set the context
+  void setContext(BuildContext context) {
+    _context = context;
   }
 } 

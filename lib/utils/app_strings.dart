@@ -62,6 +62,7 @@ class AppStrings {
       'Turkish': 'Turkish (Türkçe)',
       'unknownCategory': 'Unknown Category',
       'noTransactionsFound': 'No transactions found',
+      'monthlyReview': 'Monthly Review',
     },
     'tr': {
       // Navigation
@@ -157,6 +158,7 @@ class AppStrings {
       'Day 28': 'Gün 28',
       'unknownCategory': 'Bilinmeyen Kategori',
       'noTransactionsFound': 'İşlem bulunamadı',
+      'monthlyReview': 'Aylık İnceleme',
     },
   };
 

@@ -14,6 +14,7 @@ import '../screens/categories_screen.dart';
 import '../utils/app_strings.dart';
 import '../providers/language_provider.dart';
 import '../providers/category_provider.dart';
+import '../screens/monthly_review_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -72,16 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
             label: AppStrings.get('dashboard', language: language),
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.history),
-            label: AppStrings.get('transactions', language: language),
+            icon: const Icon(Icons.calendar_month),
+            label: AppStrings.get('monthlyReview', language: language),
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.category),
             label: AppStrings.get('categories', language: language),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.calendar_today),
-            label: AppStrings.get('upcoming', language: language),
           ),
         ],
       ),
@@ -106,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 0:
         return _buildDashboard();
       case 1:
-        return const TransactionList();
+        return const MonthlyReviewScreen();
       case 2:
         return const CategoriesScreen();
       case 3:
