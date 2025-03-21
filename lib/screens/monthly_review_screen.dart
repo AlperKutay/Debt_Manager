@@ -250,7 +250,7 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          currencyFormat.format(amount),
+          _formatCurrency(amount, currencyFormat),
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -259,6 +259,22 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
         ),
       ],
     );
+  }
+
+  // New method to format currency without decimal places for whole numbers
+  String _formatCurrency(double amount, NumberFormat currencyFormat) {
+    // Check if the amount is a whole number
+    if (amount == amount.roundToDouble()) {
+      // Create a new formatter without decimal places
+      final wholeNumberFormat = NumberFormat.currency(
+        symbol: currencyFormat.currencySymbol,
+        decimalDigits: 0,
+      );
+      return wholeNumberFormat.format(amount);
+    } else {
+      // Use the original formatter for non-whole numbers
+      return currencyFormat.format(amount);
+    }
   }
 
   NumberFormat _getCurrencyFormat(String currency) {
