@@ -23,7 +23,7 @@ flutter pub get
 
 echo "Done! You can now try building for iOS again."
 
-flutter pub run flutter_launcher_icons
+flutter pub run flutter_launcher_icons:main
 flutter build ios --release
 cd build/ios/iphoneos
 mkdir Payload

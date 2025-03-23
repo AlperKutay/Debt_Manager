@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  flutter_launcher_icons: ^0.13.1
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -104,3 +105,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon_foreground.png" # Your icon path
